@@ -58,7 +58,7 @@ func (s *Server) updateHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	err = s.storage.Update(pathParts[1], pathParts[2], value)
-	if err == storage.ErrWrongMetricType {
+	if err == storage.ErrWrongMetricType || err == storage.ErrWrongMetricValue {
 		log.Println(err.Error())
 		w.WriteHeader(http.StatusBadRequest)
 		return

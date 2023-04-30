@@ -22,14 +22,29 @@ func (s *MemStorage) Update(mtype, mname string, value interface{}) error {
 
 	switch mtype {
 	case metric.CounterMetric:
+		// метрика counter может быть только int64
+		val, ok := value.(int64)
+		if !ok {
+			return storage.ErrWrongMetricValue
+		}
+
 		cur, ok := s.storage[mname]
 		if ok {
-			s.storage[mname] = cur.(int64) + value.(int64)
+			s.storage[mname] = cur.(int64) + val
 		} else {
 			s.storage[mname] = value
 		}
 	case metric.GaugeMetric:
-		s.storage[mname] = value
+		// метрика gauge может прийти и как float64, и как int64
+		val, ok := value.(float64)
+		if !ok {
+			valInt, ok := value.(int64)
+			if !ok {
+				return storage.ErrWrongMetricValue
+			}
+			val = float64(valInt)
+		}
+		s.storage[mname] = val
 	}
 
 	return nil
