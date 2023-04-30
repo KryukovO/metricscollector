@@ -6,7 +6,5 @@ import (
 )
 
 func main() {
-	storage := memstorage.New()
-	server := server.New(storage)
-	server.Run()
+	server.Run(memstorage.New())
 }
