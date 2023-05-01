@@ -22,7 +22,7 @@ var (
 )
 
 func Run() error {
-	log.Print("Agent is running...")
+	log.Println("Agent is running...")
 
 	client := http.Client{
 		// Суммарное время ожидания ответа всех отправок метрик
@@ -42,7 +42,10 @@ func Run() error {
 
 		// отправляем метрики на сервер, если прошло reportInterval времени
 		if time.Since(lastReport) > reportInterval {
-			sendMetrics(&client, m)
+			err := sendMetrics(&client, m)
+			if err != nil {
+				return err
+			}
 			lastReport = time.Now()
 		}
 
@@ -98,7 +101,11 @@ func scanMetrics(m map[string]interface{}) error {
 	return nil
 }
 
-func sendMetrics(client *http.Client, m map[string]interface{}) {
+func sendMetrics(client *http.Client, m map[string]interface{}) error {
+	if client == nil {
+		return errors.New("HTTP client is nil")
+	}
+
 	for mname, val := range m {
 		var url string
 		if mname == "PollCount" {
@@ -127,4 +134,5 @@ func sendMetrics(client *http.Client, m map[string]interface{}) {
 	}
 
 	log.Println("metrics sent")
+	return nil
 }

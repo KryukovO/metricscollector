@@ -7,6 +7,7 @@ import (
 )
 
 func main() {
-	err := agent.Run()
-	log.Fatalf("error during agent operation: %s. Exit(1)", err.Error())
+	if err := agent.Run(); err != nil {
+		log.Fatalf("agent error: %s. Exit(1)\n", err.Error())
+	}
 }

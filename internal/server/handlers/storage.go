@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"errors"
 	"log"
 	"net/http"
 	"strconv"
@@ -14,9 +15,18 @@ type StorageController struct {
 	storage storage.Storage
 }
 
-func newStorageHandlers(mux *http.ServeMux, s storage.Storage) {
+func newStorageHandlers(mux *http.ServeMux, s storage.Storage) error {
+	if mux == nil {
+		return errors.New("router is nil")
+	}
+	if s == nil {
+		return errors.New("storage is nil")
+	}
+
 	c := &StorageController{storage: s}
 	mux.Handle("/update/", middleware.LoggingMiddleware(http.HandlerFunc(c.updateHandler)))
+
+	return nil
 }
 
 func (c *StorageController) updateHandler(w http.ResponseWriter, r *http.Request) {
@@ -51,7 +61,7 @@ func (c *StorageController) updateHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 	if err != nil {
-		log.Printf("something went wrong: %s", err.Error())
+		log.Printf("something went wrong: %s\n", err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}

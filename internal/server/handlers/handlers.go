@@ -6,10 +6,12 @@ import (
 	"github.com/KryukovO/metricscollector/internal/storage"
 )
 
-func NewHandlers(s storage.Storage) *http.ServeMux {
+func NewHandlers(s storage.Storage) (*http.ServeMux, error) {
 	mux := http.NewServeMux()
 
-	newStorageHandlers(mux, s)
+	if err := newStorageHandlers(mux, s); err != nil {
+		return nil, err
+	}
 
-	return mux
+	return mux, nil
 }

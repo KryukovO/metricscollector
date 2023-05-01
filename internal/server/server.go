@@ -8,7 +8,14 @@ import (
 	"github.com/KryukovO/metricscollector/internal/storage"
 )
 
-func Run(s storage.Storage) {
+func Run(s storage.Storage) error {
 	log.Println("Server is running...")
-	http.ListenAndServe(":8080", handlers.NewHandlers(s))
+
+	mux, err := handlers.NewHandlers(s)
+	if err != nil {
+		return err
+	}
+
+	http.ListenAndServe(":8080", mux)
+	return err
 }
