@@ -7,7 +7,7 @@ import (
 
 func LoggingMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		log.Printf("Recieved query with method %s: %s\n", r.Method, r.URL)
+		log.Printf("recieved query with method %s: %s\n", r.Method, r.URL)
 		next.ServeHTTP(w, r)
 	})
 }
