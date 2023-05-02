@@ -15,9 +15,35 @@ func New() *MemStorage {
 	}
 }
 
+func (s *MemStorage) GetAll() map[string]interface{} {
+	return s.storage
+}
+
+func (s *MemStorage) GetValue(mtype string, mname string) (interface{}, bool) {
+	v, ok := s.storage[mname]
+	if !ok {
+		return nil, ok
+	}
+
+	switch mtype {
+	case metric.CounterMetric:
+		_, ok = v.(int64)
+	case metric.GaugeMetric:
+		_, ok = v.(float64)
+	default:
+		ok = false
+	}
+
+	if !ok {
+		return nil, false
+	}
+
+	return v, ok
+}
+
 func (s *MemStorage) Update(mtype, mname string, value interface{}) error {
-	if mtype != metric.CounterMetric && mtype != metric.GaugeMetric {
-		return storage.ErrWrongMetricType
+	if mname == "" {
+		return storage.ErrWrongMetricName
 	}
 
 	switch mtype {
@@ -45,6 +71,8 @@ func (s *MemStorage) Update(mtype, mname string, value interface{}) error {
 			val = float64(valInt)
 		}
 		s.storage[mname] = val
+	default:
+		return storage.ErrWrongMetricType
 	}
 
 	return nil

@@ -3,6 +3,7 @@ package agent
 import (
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"math/rand"
 	"net/http"
@@ -121,12 +122,15 @@ func sendMetrics(client *http.Client, m map[string]interface{}) error {
 		}
 
 		req.Header.Add("Content-Type", "text/plain")
+
 		resp, err := client.Do(req)
 		if err != nil {
 			log.Printf("error sending '%s' metric value: %s\n", mname, err.Error())
 			continue
 		}
-		defer resp.Body.Close()
+
+		io.Copy(io.Discard, resp.Body)
+		resp.Body.Close()
 
 		if resp.StatusCode != http.StatusOK {
 			log.Printf("error sending '%s' metric value: %s\n", mname, resp.Status)

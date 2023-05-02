@@ -2,20 +2,24 @@ package server
 
 import (
 	"log"
-	"net/http"
 
 	"github.com/KryukovO/metricscollector/internal/server/handlers"
 	"github.com/KryukovO/metricscollector/internal/storage"
+	"github.com/labstack/echo"
 )
 
 func Run(s storage.Storage) error {
-	log.Println("Server is running...")
-
-	mux, err := handlers.NewHandlers(s)
-	if err != nil {
+	e := echo.New()
+	e.HideBanner = true
+	e.HidePort = true
+	if err := handlers.SetHandlers(e, s); err != nil {
 		return err
 	}
 
-	http.ListenAndServe(":8080", mux)
-	return err
+	log.Println("Server is running...")
+	if err := e.Start(":8080"); err != nil {
+		return err
+	}
+
+	return nil
 }

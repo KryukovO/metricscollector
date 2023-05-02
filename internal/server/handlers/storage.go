@@ -2,21 +2,21 @@ package handlers
 
 import (
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"strconv"
-	"strings"
 
-	"github.com/KryukovO/metricscollector/internal/server/middleware"
 	"github.com/KryukovO/metricscollector/internal/storage"
+	"github.com/labstack/echo"
 )
 
 type StorageController struct {
 	storage storage.Storage
 }
 
-func newStorageHandlers(mux *http.ServeMux, s storage.Storage) error {
-	if mux == nil {
+func newStorageHandlers(router *echo.Router, s storage.Storage) error {
+	if router == nil {
 		return errors.New("router is nil")
 	}
 	if s == nil {
@@ -24,48 +24,69 @@ func newStorageHandlers(mux *http.ServeMux, s storage.Storage) error {
 	}
 
 	c := &StorageController{storage: s}
-	mux.Handle("/update/", middleware.LoggingMiddleware(http.HandlerFunc(c.updateHandler)))
+
+	router.Add(http.MethodPost, "/update/:mtype/:mname/:value", c.updateHandler)
+	router.Add(http.MethodGet, "/value/:mtype/:mname", c.getValueHandler)
+	router.Add(http.MethodGet, "/", c.getAllHandler)
 
 	return nil
 }
 
-func (c *StorageController) updateHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		log.Println("method not allowed")
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
+func (c *StorageController) updateHandler(e echo.Context) error {
+	mtype := e.Param("mtype")
+	mname := e.Param("mname")
+	value := e.Param("value")
 
-	pathParts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
-	if len(pathParts) != 4 {
-		log.Println("empty metric name")
-		w.WriteHeader(http.StatusNotFound)
-		return
-	}
+	var v interface{}
+	var err error
 
-	var value interface{}
-	value, err := strconv.ParseInt(pathParts[3], 10, 64)
+	v, err = strconv.ParseInt(value, 10, 64)
 	if err != nil {
-		value, err = strconv.ParseFloat(pathParts[3], 64)
+		v, err = strconv.ParseFloat(value, 64)
 		if err != nil {
 			log.Println(storage.ErrWrongMetricValue.Error())
-			w.WriteHeader(http.StatusBadRequest)
-			return
+			return e.NoContent(http.StatusBadRequest)
 		}
 	}
 
-	err = c.storage.Update(pathParts[1], pathParts[2], value)
+	err = c.storage.Update(mtype, mname, v)
+	if err == storage.ErrWrongMetricName {
+		log.Println(err.Error())
+		return e.NoContent(http.StatusNotFound)
+	}
 	if err == storage.ErrWrongMetricType || err == storage.ErrWrongMetricValue {
 		log.Println(err.Error())
-		w.WriteHeader(http.StatusBadRequest)
-		return
+		return e.NoContent(http.StatusBadRequest)
 	}
 	if err != nil {
 		log.Printf("something went wrong: %s\n", err.Error())
-		w.WriteHeader(http.StatusInternalServerError)
-		return
+		return e.NoContent(http.StatusInternalServerError)
 	}
 
-	w.Header().Set("Content-Type", "text/plain")
-	w.WriteHeader(http.StatusOK)
+	return e.NoContent(http.StatusOK)
+}
+
+func (c *StorageController) getValueHandler(e echo.Context) error {
+	mtype := e.Param("mtype")
+	mname := e.Param("mname")
+
+	v, ok := c.storage.GetValue(mtype, mname)
+	if !ok {
+		return e.NoContent(http.StatusNotFound)
+	}
+
+	return e.String(http.StatusOK, fmt.Sprintf("%v", v))
+}
+
+func (c *StorageController) getAllHandler(e echo.Context) error {
+	values := c.storage.GetAll()
+
+	page := "<table><tr><th>Metric name</th><th>Value</th></tr>%s</table>"
+	var rows string
+	for key, v := range values {
+		rows += fmt.Sprintf("<tr><td>%s</td><td>%v</td></tr>", key, v)
+	}
+	page = fmt.Sprintf(page, rows)
+
+	return e.HTML(http.StatusOK, page)
 }

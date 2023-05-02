@@ -7,6 +7,107 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestMemStorage_GetAll(t *testing.T) {
+	m := map[string]interface{}{
+		"RandomValue": float64(12345.67),
+		"PollCount":   int64(100),
+	}
+	s := &MemStorage{
+		storage: m,
+	}
+	v := s.GetAll()
+	assert.Equal(t, m, v)
+}
+
+func TestMemStorage_GetValue(t *testing.T) {
+	m := map[string]interface{}{
+		"RandomValue": float64(12345.67),
+		"PollCount":   int64(100),
+	}
+
+	type args struct {
+		mtype string
+		mname string
+	}
+	type want struct {
+		value interface{}
+		ok    bool
+	}
+	tests := []struct {
+		name string
+		args args
+		want want
+	}{
+		{
+			name: "Existing gauge value",
+			args: args{
+				mtype: "gauge",
+				mname: "RandomValue",
+			},
+			want: want{
+				value: float64(12345.67),
+				ok:    true,
+			},
+		},
+		{
+			name: "Existing counter value",
+			args: args{
+				mtype: "counter",
+				mname: "PollCount",
+			},
+			want: want{
+				value: int64(100),
+				ok:    true,
+			},
+		},
+		{
+			name: "Metric with name does not exists",
+			args: args{
+				mtype: "gauge",
+				mname: "Alloc",
+			},
+			want: want{
+				value: nil,
+				ok:    false,
+			},
+		},
+		{
+			name: "Metric with name exists, but type incorrect",
+			args: args{
+				mtype: "gauge",
+				mname: "PollCount",
+			},
+			want: want{
+				value: nil,
+				ok:    false,
+			},
+		},
+		{
+			name: "Incorrect metric type",
+			args: args{
+				mtype: "metric",
+				mname: "PollCount",
+			},
+			want: want{
+				value: nil,
+				ok:    false,
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			s := MemStorage{
+				storage: m,
+			}
+			v, ok := s.GetValue(test.args.mtype, test.args.mname)
+			assert.Equal(t, test.want.value, v)
+			assert.Equal(t, test.want.ok, ok)
+		})
+	}
+
+}
+
 func TestMemStorage_Update(t *testing.T) {
 	type args struct {
 		mtype string
