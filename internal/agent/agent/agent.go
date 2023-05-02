@@ -37,7 +37,7 @@ func Run(c *config.Config) error {
 
 		// отправляем метрики на сервер, если прошло reportInterval времени
 		if time.Since(lastReport) > time.Duration(c.ReportInterval)*time.Second {
-			err := sendMetrics(&client, m)
+			err := sendMetrics(&client, c.ServerAddress, m)
 			if err != nil {
 				return err
 			}
@@ -96,7 +96,7 @@ func scanMetrics(m map[string]interface{}) error {
 	return nil
 }
 
-func sendMetrics(client *http.Client, m map[string]interface{}) error {
+func sendMetrics(client *http.Client, sAddr string, m map[string]interface{}) error {
 	if client == nil {
 		return errors.New("HTTP client is nil")
 	}
@@ -104,9 +104,9 @@ func sendMetrics(client *http.Client, m map[string]interface{}) error {
 	for mname, val := range m {
 		var url string
 		if mname == "PollCount" {
-			url = fmt.Sprintf("http://localhost:8080/update/%s/%s/%d", metric.CounterMetric, mname, val.(int64))
+			url = fmt.Sprintf("http://%s/update/%s/%s/%d", sAddr, metric.CounterMetric, mname, val.(int64))
 		} else {
-			url = fmt.Sprintf("http://localhost:8080/update/%s/%s/%f", metric.GaugeMetric, mname, val.(float64))
+			url = fmt.Sprintf("http://%s/update/%s/%s/%f", sAddr, metric.GaugeMetric, mname, val.(float64))
 		}
 
 		req, err := http.NewRequest(http.MethodPost, url, nil)
