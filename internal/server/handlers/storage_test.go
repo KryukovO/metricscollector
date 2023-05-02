@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/KryukovO/metricscollector/internal/models/metric"
+	"github.com/KryukovO/metricscollector/internal/metric"
 	"github.com/KryukovO/metricscollector/internal/storage/memstorage"
 	"github.com/labstack/echo"
 	"github.com/stretchr/testify/assert"

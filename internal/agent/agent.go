@@ -10,7 +10,7 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/KryukovO/metricscollector/internal/models/metric"
+	"github.com/KryukovO/metricscollector/internal/metric"
 )
 
 const (

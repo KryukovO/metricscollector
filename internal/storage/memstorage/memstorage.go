@@ -1,7 +1,7 @@
 package memstorage
 
 import (
-	"github.com/KryukovO/metricscollector/internal/models/metric"
+	"github.com/KryukovO/metricscollector/internal/metric"
 	"github.com/KryukovO/metricscollector/internal/storage"
 )
 

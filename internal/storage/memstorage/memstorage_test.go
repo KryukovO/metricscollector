@@ -3,7 +3,7 @@ package memstorage
 import (
 	"testing"
 
-	"github.com/KryukovO/metricscollector/internal/models/metric"
+	"github.com/KryukovO/metricscollector/internal/metric"
 	"github.com/stretchr/testify/assert"
 )
 
