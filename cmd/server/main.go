@@ -11,7 +11,7 @@ import (
 func main() {
 	c := config.New()
 
-	flag.StringVar(&c.HTTPAddress, "a", "127.0.0.1:8080", "Server endpoint address")
+	flag.StringVar(&c.HTTPAddress, "a", "localhost:8080", "Server endpoint address")
 	flag.Parse()
 
 	if err := server.Run(c); err != nil {

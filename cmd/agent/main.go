@@ -11,7 +11,7 @@ import (
 func main() {
 	c := config.New()
 
-	flag.StringVar(&c.ServerAddress, "a", "127.0.0.1:8080", "Server endpoint address")
+	flag.StringVar(&c.ServerAddress, "a", "localhost:8080", "Server endpoint address")
 	flag.UintVar(&c.ReportInterval, "r", 10, "Metric reporting frequency in second")
 	flag.UintVar(&c.PollInterval, "p", 2, "Metric polling frequency in seconds")
 	flag.Parse()
