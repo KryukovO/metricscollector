@@ -10,25 +10,19 @@ import (
 	"runtime"
 	"time"
 
+	"github.com/KryukovO/metricscollector/internal/agent/config"
 	"github.com/KryukovO/metricscollector/internal/metric"
-)
-
-const (
-	pollInterval   = 2 * time.Second  // Интервал обновления метрик
-	reportInterval = 10 * time.Second // Интервал отправки метрик
 )
 
 var (
 	rnd = rand.New(rand.NewSource(time.Now().UnixNano()))
 )
 
-func Run() error {
+func Run(c *config.Config) error {
 	log.Println("Agent is running...")
 
 	client := http.Client{
-		// Суммарное время ожидания ответа всех отправок метрик
-		// не должно превышать интервала обновления метрик
-		Timeout: 66 * time.Millisecond, // 66 * 29 = 1914 ms < 2000 ms
+		//TODO: timeout?
 	}
 
 	m := make(map[string]interface{})
@@ -42,7 +36,7 @@ func Run() error {
 		}
 
 		// отправляем метрики на сервер, если прошло reportInterval времени
-		if time.Since(lastReport) > reportInterval {
+		if time.Since(lastReport) > time.Duration(c.ReportInterval)*time.Second {
 			err := sendMetrics(&client, m)
 			if err != nil {
 				return err
@@ -51,7 +45,7 @@ func Run() error {
 		}
 
 		// ожидание следующего интервала сканирования метрик
-		time.Sleep(pollInterval)
+		time.Sleep(time.Duration(c.PollInterval) * time.Second)
 	}
 }
 

@@ -9,11 +9,12 @@ import (
 )
 
 func main() {
-	var c config.Config
-	flag.StringVar(&c.HTTPAddress, "a", "127.0.0.1:8080", "Server endpoint address (host:port)")
+	c := config.New()
+
+	flag.StringVar(&c.HTTPAddress, "a", "127.0.0.1:8080", "Server endpoint address")
 	flag.Parse()
 
-	if err := server.Run(&c); err != nil {
+	if err := server.Run(c); err != nil {
 		log.Fatalf("server error: %s. Exit(1)\n", err.Error())
 	}
 }
