@@ -27,15 +27,19 @@ func Run(c *config.Config) error {
 
 	m := make(map[string]interface{})
 	var lastReport time.Time
+	var lastScan time.Time
 
 	for {
-		// сканируем метрики
-		err := scanMetrics(m)
-		if err != nil {
-			return err
+		// сканируем метрики, если прошло pollInterval секунд с последнего сканирования
+		if time.Since(lastScan) > time.Duration(c.PollInterval)*time.Second {
+			err := scanMetrics(m)
+			if err != nil {
+				return err
+			}
+			lastScan = time.Now()
 		}
 
-		// отправляем метрики на сервер, если прошло reportInterval времени
+		// отправляем метрики на сервер, если прошло reportInterval секунд с последней отправки
 		if time.Since(lastReport) > time.Duration(c.ReportInterval)*time.Second {
 			err := sendMetrics(&client, c.ServerAddress, m)
 			if err != nil {
@@ -44,8 +48,8 @@ func Run(c *config.Config) error {
 			lastReport = time.Now()
 		}
 
-		// ожидание следующего интервала сканирования метрик
-		time.Sleep(time.Duration(c.PollInterval) * time.Second)
+		// выполняем проверку необходимости сканирования/отправки раз в секунду
+		time.Sleep(time.Second)
 	}
 }
 
