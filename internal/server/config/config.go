@@ -1,7 +1,7 @@
 package config
 
 type Config struct {
-	HTTPAddress string
+	HTTPAddress string `env:"ADDRESS"`
 }
 
 func New() *Config {
