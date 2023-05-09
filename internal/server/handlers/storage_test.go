@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestStorageController_updateHandler(t *testing.T) {
+func TestUpdateHandler(t *testing.T) {
 	type args struct {
 		url    string
 		method string
@@ -131,7 +131,7 @@ func TestStorageController_updateHandler(t *testing.T) {
 	}
 }
 
-func TestStorageController_getValueHandler(t *testing.T) {
+func TestGetValueHandler(t *testing.T) {
 	type args struct {
 		url    string
 		method string
@@ -209,7 +209,7 @@ func TestStorageController_getValueHandler(t *testing.T) {
 	}
 }
 
-func TestStorageController_getAllHandler(t *testing.T) {
+func TestGetAllHandler(t *testing.T) {
 	type args struct {
 		url    string
 		method string

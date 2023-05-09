@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func Test_scanMetrics(t *testing.T) {
+func TestScanMetrics(t *testing.T) {
 	type want struct {
 		keys    []string
 		wantErr bool

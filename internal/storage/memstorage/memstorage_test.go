@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestMemStorage_GetAll(t *testing.T) {
+func TestGetAll(t *testing.T) {
 	m := map[string]interface{}{
 		"RandomValue": float64(12345.67),
 		"PollCount":   int64(100),
@@ -19,7 +19,7 @@ func TestMemStorage_GetAll(t *testing.T) {
 	assert.Equal(t, m, v)
 }
 
-func TestMemStorage_GetValue(t *testing.T) {
+func TestGetValue(t *testing.T) {
 	m := map[string]interface{}{
 		"RandomValue": float64(12345.67),
 		"PollCount":   int64(100),
@@ -108,7 +108,7 @@ func TestMemStorage_GetValue(t *testing.T) {
 
 }
 
-func TestMemStorage_Update(t *testing.T) {
+func TestUpdate(t *testing.T) {
 	type args struct {
 		mtype string
 		mname string
