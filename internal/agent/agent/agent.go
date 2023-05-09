@@ -16,6 +16,9 @@ import (
 
 var (
 	rnd = rand.New(rand.NewSource(time.Now().UnixNano()))
+
+	ErrStorageIsNil = errors.New("metrics storage is nil")
+	ErrClientIsNil  = errors.New("HTTP client is nil")
 )
 
 func Run(c *config.Config) error {
@@ -41,10 +44,17 @@ func Run(c *config.Config) error {
 
 		// отправляем метрики на сервер, если прошло reportInterval секунд с последней отправки
 		if time.Since(lastReport) > time.Duration(c.ReportInterval)*time.Second {
-			err := sendMetrics(&client, c.ServerAddress, m)
-			if err != nil {
-				return err
+			for mname, mval := range m {
+				err := sendMetric(&client, c.ServerAddress, mname, mval)
+				if err == ErrClientIsNil {
+					return err
+				}
+				if err != nil {
+					log.Printf("error sending '%s' metric value: %s\n", mname, err.Error())
+				}
 			}
+
+			log.Println("metrics sent")
 			lastReport = time.Now()
 		}
 
@@ -55,7 +65,7 @@ func Run(c *config.Config) error {
 
 func scanMetrics(m map[string]interface{}) error {
 	if m == nil {
-		return errors.New("metrics storage is nil")
+		return ErrStorageIsNil
 	}
 
 	if _, ok := m["PollCount"]; !ok {
@@ -100,41 +110,36 @@ func scanMetrics(m map[string]interface{}) error {
 	return nil
 }
 
-func sendMetrics(client *http.Client, sAddr string, m map[string]interface{}) error {
+func sendMetric(client *http.Client, sAddr, mname string, mval interface{}) error {
 	if client == nil {
-		return errors.New("HTTP client is nil")
+		return ErrClientIsNil
 	}
 
-	for mname, val := range m {
-		var url string
-		if mname == "PollCount" {
-			url = fmt.Sprintf("http://%s/update/%s/%s/%d", sAddr, metric.CounterMetric, mname, val.(int64))
-		} else {
-			url = fmt.Sprintf("http://%s/update/%s/%s/%f", sAddr, metric.GaugeMetric, mname, val.(float64))
-		}
-
-		req, err := http.NewRequest(http.MethodPost, url, nil)
-		if err != nil {
-			log.Printf("error sending '%s' metric value: %s\n", mname, err.Error())
-			continue
-		}
-
-		req.Header.Add("Content-Type", "text/plain")
-
-		resp, err := client.Do(req)
-		if err != nil {
-			log.Printf("error sending '%s' metric value: %s\n", mname, err.Error())
-			continue
-		}
-
-		io.Copy(io.Discard, resp.Body)
-		resp.Body.Close()
-
-		if resp.StatusCode != http.StatusOK {
-			log.Printf("error sending '%s' metric value: %s\n", mname, resp.Status)
-		}
+	var url string
+	if mname == "PollCount" {
+		url = fmt.Sprintf("http://%s/update/%s/%s/%d", sAddr, metric.CounterMetric, mname, mval.(int64))
+	} else {
+		url = fmt.Sprintf("http://%s/update/%s/%s/%f", sAddr, metric.GaugeMetric, mname, mval.(float64))
 	}
 
-	log.Println("metrics sent")
+	req, err := http.NewRequest(http.MethodPost, url, nil)
+	if err != nil {
+		return err
+	}
+
+	req.Header.Add("Content-Type", "text/plain")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+
+	io.Copy(io.Discard, resp.Body)
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return errors.New(resp.Status)
+	}
+
 	return nil
 }
