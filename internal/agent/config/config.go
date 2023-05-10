@@ -6,6 +6,6 @@ type Config struct {
 	ServerAddress  string `env:"ADDRESS"`         // Адрес эндпоинта сервера (host:port)
 }
 
-func New() *Config {
+func NewConfig() *Config {
 	return &Config{}
 }

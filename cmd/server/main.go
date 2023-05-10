@@ -10,7 +10,7 @@ import (
 )
 
 func main() {
-	c := config.New()
+	c := config.NewConfig()
 
 	flag.StringVar(&c.HTTPAddress, "a", "localhost:8080", "Server endpoint address")
 	flag.Parse()

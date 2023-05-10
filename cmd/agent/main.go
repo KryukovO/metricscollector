@@ -10,7 +10,7 @@ import (
 )
 
 func main() {
-	c := config.New()
+	c := config.NewConfig()
 
 	flag.StringVar(&c.ServerAddress, "a", "localhost:8080", "Server endpoint address")
 	flag.UintVar(&c.ReportInterval, "r", 10, "Metric reporting frequency in second")

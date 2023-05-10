@@ -4,6 +4,6 @@ type Config struct {
 	HTTPAddress string `env:"ADDRESS"`
 }
 
-func New() *Config {
+func NewConfig() *Config {
 	return &Config{}
 }
