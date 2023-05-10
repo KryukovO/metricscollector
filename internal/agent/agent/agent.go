@@ -15,14 +15,14 @@ import (
 )
 
 var (
-	rnd = rand.New(rand.NewSource(time.Now().UnixNano()))
-
 	ErrStorageIsNil = errors.New("metrics storage is nil")
 	ErrClientIsNil  = errors.New("HTTP client is nil")
 )
 
 func Run(c *config.Config) error {
 	log.Println("Agent is running...")
+
+	rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
 
 	client := http.Client{
 		//TODO: timeout?
@@ -35,7 +35,7 @@ func Run(c *config.Config) error {
 	for {
 		// сканируем метрики, если прошло pollInterval секунд с последнего сканирования
 		if time.Since(lastScan) > time.Duration(c.PollInterval)*time.Second {
-			err := scanMetrics(m)
+			err := scanMetrics(m, rnd)
 			if err != nil {
 				return err
 			}
@@ -63,7 +63,11 @@ func Run(c *config.Config) error {
 	}
 }
 
-func scanMetrics(m map[string]interface{}) error {
+// Сканирование метрик в хранилище m.
+//
+// rnd - опциональный параметр, используемый для генерации случайной метрики RandomValue.
+// Если rnd == nil, то используется стандартный генератор math/rand
+func scanMetrics(m map[string]interface{}, rnd *rand.Rand) error {
 	if m == nil {
 		return ErrStorageIsNil
 	}
@@ -104,7 +108,11 @@ func scanMetrics(m map[string]interface{}) error {
 	m["Sys"] = float64(rtm.Sys)
 	m["TotalAlloc"] = float64(rtm.TotalAlloc)
 
-	m["RandomValue"] = float64(rnd.Intn(10000000))
+	rndVal := float64(rand.Intn(10000000))
+	if rnd != nil {
+		rndVal = float64(rnd.Intn(10000000))
+	}
+	m["RandomValue"] = rndVal
 	m["PollCount"] = m["PollCount"].(int64) + 1
 
 	return nil
