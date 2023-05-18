@@ -4,7 +4,7 @@ import (
 	"flag"
 	"log"
 
-	"github.com/KryukovO/metricscollector/internal/agent/agent"
+	"github.com/KryukovO/metricscollector/internal/agent"
 	"github.com/KryukovO/metricscollector/internal/agent/config"
 	"github.com/caarlos0/env"
 )

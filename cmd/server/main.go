@@ -4,8 +4,8 @@ import (
 	"flag"
 	"log"
 
+	"github.com/KryukovO/metricscollector/internal/server"
 	"github.com/KryukovO/metricscollector/internal/server/config"
-	"github.com/KryukovO/metricscollector/internal/server/server"
 	"github.com/caarlos0/env"
 )
 
