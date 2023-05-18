@@ -3,12 +3,13 @@ package handlers
 import (
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
 	"strconv"
 
 	"github.com/KryukovO/metricscollector/internal/storage"
+
 	"github.com/labstack/echo"
+	log "github.com/sirupsen/logrus"
 )
 
 type StorageController struct {
@@ -44,22 +45,22 @@ func (c *StorageController) updateHandler(e echo.Context) error {
 	if err != nil {
 		v, err = strconv.ParseFloat(value, 64)
 		if err != nil {
-			log.Println(storage.ErrWrongMetricValue.Error())
+			log.Info(storage.ErrWrongMetricValue.Error())
 			return e.NoContent(http.StatusBadRequest)
 		}
 	}
 
 	err = c.storage.Update(mtype, mname, v)
 	if err == storage.ErrWrongMetricName {
-		log.Println(err.Error())
+		log.Info(err.Error())
 		return e.NoContent(http.StatusNotFound)
 	}
 	if err == storage.ErrWrongMetricType || err == storage.ErrWrongMetricValue {
-		log.Println(err.Error())
+		log.Info(err.Error())
 		return e.NoContent(http.StatusBadRequest)
 	}
 	if err != nil {
-		log.Printf("something went wrong: %s\n", err.Error())
+		log.Info("something went wrong: %s", err.Error())
 		return e.NoContent(http.StatusInternalServerError)
 	}
 

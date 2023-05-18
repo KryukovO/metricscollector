@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"math/rand"
 	"net/http"
 	"runtime"
@@ -12,6 +11,8 @@ import (
 
 	"github.com/KryukovO/metricscollector/internal/agent/config"
 	"github.com/KryukovO/metricscollector/internal/metric"
+
+	log "github.com/sirupsen/logrus"
 )
 
 var (
@@ -20,7 +21,7 @@ var (
 )
 
 func Run(c *config.Config) error {
-	log.Println("Agent is running...")
+	log.Info("Agent is running...")
 
 	rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
 
@@ -50,11 +51,11 @@ func Run(c *config.Config) error {
 					return err
 				}
 				if err != nil {
-					log.Printf("error sending '%s' metric value: %s\n", mname, err.Error())
+					log.Infof("error sending '%s' metric value: %s", mname, err.Error())
 				}
 			}
 
-			log.Println("metrics sent")
+			log.Info("metrics sent")
 			lastReport = time.Now()
 		}
 

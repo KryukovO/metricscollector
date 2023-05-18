@@ -1,12 +1,12 @@
 package server
 
 import (
-	"log"
-
 	"github.com/KryukovO/metricscollector/internal/server/config"
 	"github.com/KryukovO/metricscollector/internal/server/handlers"
 	"github.com/KryukovO/metricscollector/internal/storage/memstorage"
+
 	"github.com/labstack/echo"
+	log "github.com/sirupsen/logrus"
 )
 
 func Run(c *config.Config) error {
@@ -22,7 +22,7 @@ func Run(c *config.Config) error {
 	}
 
 	// Запуск сервера
-	log.Printf("Server is running on %s...\n", c.HTTPAddress)
+	log.Infof("Server is running on %s...", c.HTTPAddress)
 	if err := e.Start(c.HTTPAddress); err != nil {
 		return err
 	}

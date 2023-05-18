@@ -2,11 +2,12 @@ package main
 
 import (
 	"flag"
-	"log"
 
 	"github.com/KryukovO/metricscollector/internal/agent"
 	"github.com/KryukovO/metricscollector/internal/agent/config"
+
 	"github.com/caarlos0/env"
+	log "github.com/sirupsen/logrus"
 )
 
 func main() {
@@ -17,12 +18,22 @@ func main() {
 	flag.UintVar(&c.PollInterval, "p", 2, "Metric polling frequency in seconds")
 	flag.Parse()
 
+	log.SetFormatter(&log.TextFormatter{
+		FullTimestamp:   true,
+		TimestampFormat: "2006-01-02 15:04:05 Z07:00",
+	})
+
 	err := env.Parse(c)
 	if err != nil {
-		log.Fatalf("env parsing error: %s. Exit(1)\n", err.Error())
+		log.Fatalf("env parsing error: %s. Exit(1)", err.Error())
 	}
 
+	log.SetFormatter(&log.TextFormatter{
+		FullTimestamp:   true,
+		TimestampFormat: "2006-01-02 15:04:05 Z07:00",
+	})
+
 	if err := agent.Run(c); err != nil {
-		log.Fatalf("agent error: %s. Exit(1)\n", err.Error())
+		log.Fatalf("agent error: %s. Exit(1)", err.Error())
 	}
 }
