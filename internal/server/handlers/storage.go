@@ -60,7 +60,7 @@ func (c *StorageController) updateHandler(e echo.Context) error {
 		return e.NoContent(http.StatusBadRequest)
 	}
 	if err != nil {
-		log.Info("something went wrong: %s", err.Error())
+		log.Infof("something went wrong: %s", err.Error())
 		return e.NoContent(http.StatusInternalServerError)
 	}
 
