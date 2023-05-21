@@ -1,6 +1,10 @@
 package storage
 
-import "errors"
+import (
+	"errors"
+
+	"github.com/KryukovO/metricscollector/internal/metric"
+)
 
 var (
 	ErrWrongMetricType  = errors.New("wrong metric type")
@@ -9,7 +13,7 @@ var (
 )
 
 type Storage interface {
-	GetAll() map[string]interface{}
-	GetValue(mtype string, mname string) (interface{}, bool)
-	Update(mtype, mname string, value interface{}) error
+	GetAll() []metric.Metrics
+	GetValue(mtype string, mname string) (*metric.Metrics, bool)
+	Update(mtrc *metric.Metrics) error
 }

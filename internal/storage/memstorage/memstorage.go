@@ -6,74 +6,68 @@ import (
 )
 
 type MemStorage struct {
-	storage map[string]interface{}
+	storage []metric.Metrics
 }
 
 func New() *MemStorage {
 	return &MemStorage{
-		storage: make(map[string]interface{}),
+		storage: make([]metric.Metrics, 0),
 	}
 }
 
-func (s *MemStorage) GetAll() map[string]interface{} {
+func (s *MemStorage) GetAll() []metric.Metrics {
 	return s.storage
 }
 
-func (s *MemStorage) GetValue(mtype string, mname string) (interface{}, bool) {
-	v, ok := s.storage[mname]
-	if !ok {
-		return nil, ok
+func (s *MemStorage) GetValue(mtype string, mname string) (*metric.Metrics, bool) {
+	for _, mtrc := range s.storage {
+		if mtrc.MType == mtype && mtrc.ID == mname {
+			return &mtrc, true
+		}
 	}
-
-	switch mtype {
-	case metric.CounterMetric:
-		_, ok = v.(int64)
-	case metric.GaugeMetric:
-		_, ok = v.(float64)
-	default:
-		ok = false
-	}
-
-	if !ok {
-		return nil, false
-	}
-
-	return v, ok
+	return nil, false
 }
 
-func (s *MemStorage) Update(mtype, mname string, value interface{}) error {
-	if mname == "" {
+func (s *MemStorage) Update(mtrc *metric.Metrics) error {
+	if mtrc.ID == "" {
 		return storage.ErrWrongMetricName
 	}
 
-	switch mtype {
+	var (
+		counterVal *int64
+		gaugeVal   *float64
+	)
+
+	switch mtrc.MType {
 	case metric.CounterMetric:
-		// метрика counter может быть только int64
-		val, ok := value.(int64)
-		if !ok {
+		if mtrc.Delta == nil {
 			return storage.ErrWrongMetricValue
 		}
-
-		cur, ok := s.storage[mname]
-		if ok {
-			s.storage[mname] = cur.(int64) + val
-		} else {
-			s.storage[mname] = value
-		}
+		counterVal = mtrc.Delta
 	case metric.GaugeMetric:
-		// метрика gauge может прийти и как float64, и как int64
-		val, ok := value.(float64)
-		if !ok {
-			valInt, ok := value.(int64)
-			if !ok {
-				return storage.ErrWrongMetricValue
-			}
-			val = float64(valInt)
+		if mtrc.Value == nil {
+			return storage.ErrWrongMetricValue
 		}
-		s.storage[mname] = val
+		gaugeVal = mtrc.Value
 	default:
 		return storage.ErrWrongMetricType
 	}
+
+	m, ok := s.GetValue(mtrc.MType, mtrc.ID)
+	if ok {
+		if counterVal != nil {
+			*m.Delta = *counterVal
+		}
+		m.Value = gaugeVal
+		return nil
+	}
+
+	s.storage = append(s.storage, metric.Metrics{
+		ID:    mtrc.ID,
+		MType: mtrc.MType,
+		Delta: counterVal,
+		Value: gaugeVal,
+	})
 
 	return nil
 }
