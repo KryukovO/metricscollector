@@ -132,7 +132,8 @@ func (c *StorageController) getValueHandler(e echo.Context) error {
 	if v.Delta != nil {
 		return e.String(http.StatusOK, fmt.Sprintf("%d", *v.Delta))
 	}
-	return e.String(http.StatusOK, fmt.Sprintf("%f", *v.Value))
+
+	return e.String(http.StatusOK, strconv.FormatFloat(*v.Value, 'f', -1, 64))
 }
 
 func (c *StorageController) getValueJSONHandler(e echo.Context) error {
@@ -166,7 +167,7 @@ func (c *StorageController) getAllHandler(e echo.Context) error {
 		if v.Delta != nil {
 			rows += fmt.Sprintf("<tr><td>%s</td><td>%s</td><td>%d</td></tr>", v.ID, v.MType, *v.Delta)
 		} else {
-			rows += fmt.Sprintf("<tr><td>%s</td><td>%s</td><td>%f</td></tr>", v.ID, v.MType, *v.Value)
+			rows += fmt.Sprintf("<tr><td>%s</td><td>%s</td><td>%s</td></tr>", v.ID, v.MType, strconv.FormatFloat(*v.Value, 'f', -1, 64))
 		}
 	}
 	page = fmt.Sprintf(page, rows)

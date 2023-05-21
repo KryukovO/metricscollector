@@ -53,14 +53,15 @@ func (s *MemStorage) Update(mtrc *metric.Metrics) error {
 		return storage.ErrWrongMetricType
 	}
 
-	m, ok := s.GetValue(mtrc.MType, mtrc.ID)
-	if ok {
-		if counterVal != nil {
-			*m.Delta += *counterVal
-			mtrc.Delta = m.Delta
+	for i := range s.storage {
+		if mtrc.MType == s.storage[i].MType && mtrc.ID == s.storage[i].ID {
+			if counterVal != nil {
+				*s.storage[i].Delta += *counterVal
+				mtrc.Delta = s.storage[i].Delta
+			}
+			s.storage[i].Value = gaugeVal
+			return nil
 		}
-		m.Value = gaugeVal
-		return nil
 	}
 
 	s.storage = append(s.storage, metric.Metrics{
