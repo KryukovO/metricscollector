@@ -9,7 +9,7 @@ type MemStorage struct {
 	storage []metric.Metrics
 }
 
-func New() *MemStorage {
+func NewMemStorage() *MemStorage {
 	return &MemStorage{
 		storage: make([]metric.Metrics, 0),
 	}
@@ -56,7 +56,8 @@ func (s *MemStorage) Update(mtrc *metric.Metrics) error {
 	m, ok := s.GetValue(mtrc.MType, mtrc.ID)
 	if ok {
 		if counterVal != nil {
-			*m.Delta = *counterVal
+			*m.Delta += *counterVal
+			mtrc.Delta = m.Delta
 		}
 		m.Value = gaugeVal
 		return nil

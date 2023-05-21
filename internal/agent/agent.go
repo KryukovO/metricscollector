@@ -1,6 +1,8 @@
 package agent
 
 import (
+	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -18,6 +20,7 @@ import (
 var (
 	ErrStorageIsNil = errors.New("metrics storage is nil")
 	ErrClientIsNil  = errors.New("HTTP client is nil")
+	ErrMetricIsNil  = errors.New("metric is nil")
 )
 
 func Run(c *config.Config) error {
@@ -44,9 +47,10 @@ func Run(c *config.Config) error {
 		}
 
 		// отправляем метрики на сервер, если прошло reportInterval секунд с последней отправки
+		// после отправки сбрасываем текущие сохраненные значения метрик
 		if time.Since(lastReport) > time.Duration(c.ReportInterval)*time.Second {
 			for mname, mval := range m {
-				err := sendMetric(&client, c.ServerAddress, mname, mval)
+				err := sendMetric(&client, c.ServerAddress, metric.NewMetrics(mname, mval))
 				if err == ErrClientIsNil {
 					return err
 				}
@@ -57,6 +61,7 @@ func Run(c *config.Config) error {
 
 			log.Info("metrics sent")
 			lastReport = time.Now()
+			m = make(map[string]interface{})
 		}
 
 		// выполняем проверку необходимости сканирования/отправки раз в секунду
@@ -119,24 +124,27 @@ func scanMetrics(m map[string]interface{}, rnd *rand.Rand) error {
 	return nil
 }
 
-func sendMetric(client *http.Client, sAddr, mname string, mval interface{}) error {
+func sendMetric(client *http.Client, sAddr string, mtrc *metric.Metrics) error {
 	if client == nil {
 		return ErrClientIsNil
 	}
-
-	var url string
-	if mname == "PollCount" {
-		url = fmt.Sprintf("http://%s/update/%s/%s/%d", sAddr, metric.CounterMetric, mname, mval.(int64))
-	} else {
-		url = fmt.Sprintf("http://%s/update/%s/%s/%f", sAddr, metric.GaugeMetric, mname, mval.(float64))
+	if mtrc == nil {
+		return ErrMetricIsNil
 	}
 
-	req, err := http.NewRequest(http.MethodPost, url, nil)
+	url := fmt.Sprintf("http://%s/update/", sAddr)
+
+	body, err := json.Marshal(mtrc)
 	if err != nil {
 		return err
 	}
 
-	req.Header.Add("Content-Type", "text/plain")
+	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(body))
+	if err != nil {
+		return err
+	}
+
+	req.Header.Add("Content-Type", "application/json")
 
 	resp, err := client.Do(req)
 	if err != nil {
@@ -147,6 +155,7 @@ func sendMetric(client *http.Client, sAddr, mname string, mval interface{}) erro
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
+		log.Infof("%v", mtrc)
 		return errors.New(resp.Status)
 	}
 

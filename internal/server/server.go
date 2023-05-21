@@ -11,7 +11,7 @@ import (
 
 func Run(c *config.Config) error {
 	// Инициализация хранилища
-	s := memstorage.New()
+	s := memstorage.NewMemStorage()
 
 	// Инициализация сервера
 	e := echo.New()

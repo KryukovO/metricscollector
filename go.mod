@@ -1,6 +1,6 @@
 module github.com/KryukovO/metricscollector
 
-go 1.20
+go 1.19
 
 require (
 	github.com/caarlos0/env v3.5.0+incompatible

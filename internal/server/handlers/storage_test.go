@@ -121,7 +121,7 @@ func TestUpdateHandler(t *testing.T) {
 			c.SetParamValues(values[bound:]...)
 
 			s := StorageController{
-				storage: memstorage.New(),
+				storage: memstorage.NewMemStorage(),
 			}
 			s.updateHandler(c)
 
@@ -197,7 +197,7 @@ func TestGetValueHandler(t *testing.T) {
 			bound := int(math.Min(float64(len(values)), 1))
 			c.SetParamValues(values[bound:]...)
 
-			stor := memstorage.New()
+			stor := memstorage.NewMemStorage()
 			err := stor.Update(&metric.Metrics{
 				ID:    "PollCount",
 				MType: metric.CounterMetric,
@@ -267,7 +267,7 @@ func TestGetAllHandler(t *testing.T) {
 			bound := int(math.Min(float64(len(values)), 1))
 			c.SetParamValues(values[bound:]...)
 
-			stor := memstorage.New()
+			stor := memstorage.NewMemStorage()
 			err := stor.Update(mtrc)
 			require.NoError(t, err)
 			s := StorageController{
