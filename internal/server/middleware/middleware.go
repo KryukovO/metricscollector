@@ -1,13 +1,15 @@
 package middleware
 
 import (
+	"strings"
 	"time"
 
+	"github.com/KryukovO/metricscollector/internal/server/middleware/models"
 	"github.com/labstack/echo"
 	log "github.com/sirupsen/logrus"
 )
 
-func LoggingMiddlewarefunc(next echo.HandlerFunc) echo.HandlerFunc {
+func LoggingMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 	return echo.HandlerFunc(func(e echo.Context) (err error) {
 		log.Infof("recieved query with method %s: %s", e.Request().Method, e.Request().RequestURI)
 
@@ -21,5 +23,24 @@ func LoggingMiddlewarefunc(next echo.HandlerFunc) echo.HandlerFunc {
 		}
 
 		return res
+	})
+}
+
+func GZipMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
+	return echo.HandlerFunc(func(e echo.Context) (err error) {
+		// Допустимые для сжатия форматы данных в ответе
+		acceptTypes := []string{"application/json", "text/html"}
+
+		// Проверка допускает ли клиент данные сжатые gzip
+		acceptEnc := e.Request().Header.Get("Accept-Encoding")
+		supportsGzip := strings.Contains(acceptEnc, "gzip")
+
+		if supportsGzip {
+			cw := models.NewCompressWriter(e.Response().Writer, acceptTypes)
+			e.Response().Writer = cw
+			// Note: Закрытие cw вызывается в методе cw.Write
+		}
+
+		return next(e)
 	})
 }

@@ -14,6 +14,7 @@ func Run(c *config.Config) error {
 	s := memstorage.NewMemStorage()
 
 	// Инициализация сервера
+	// TODO: переопределить e.HTTPErrorHandler, чтобы он не заполнял тело ответа
 	e := echo.New()
 	e.HideBanner = true
 	e.HidePort = true
