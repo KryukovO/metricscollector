@@ -120,8 +120,10 @@ func TestUpdateHandler(t *testing.T) {
 			bound := int(math.Min(float64(len(values)), 1))
 			c.SetParamValues(values[bound:]...)
 
+			m, err := memstorage.NewMemStorage("", false, 0)
+			require.NoError(t, err)
 			s := StorageController{
-				storage: memstorage.NewMemStorage(),
+				storage: m,
 			}
 			s.updateHandler(c)
 
@@ -197,8 +199,9 @@ func TestGetValueHandler(t *testing.T) {
 			bound := int(math.Min(float64(len(values)), 1))
 			c.SetParamValues(values[bound:]...)
 
-			stor := memstorage.NewMemStorage()
-			err := stor.Update(&metric.Metrics{
+			stor, err := memstorage.NewMemStorage("", false, 0)
+			require.NoError(t, err)
+			err = stor.Update(&metric.Metrics{
 				ID:    "PollCount",
 				MType: metric.CounterMetric,
 				Delta: counterVal,
@@ -267,8 +270,9 @@ func TestGetAllHandler(t *testing.T) {
 			bound := int(math.Min(float64(len(values)), 1))
 			c.SetParamValues(values[bound:]...)
 
-			stor := memstorage.NewMemStorage()
-			err := stor.Update(mtrc)
+			stor, err := memstorage.NewMemStorage("", false, 0)
+			require.NoError(t, err)
+			err = stor.Update(mtrc)
 			require.NoError(t, err)
 			s := StorageController{
 				storage: stor,

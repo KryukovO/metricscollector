@@ -1,6 +1,8 @@
 package server
 
 import (
+	"time"
+
 	"github.com/KryukovO/metricscollector/internal/server/config"
 	"github.com/KryukovO/metricscollector/internal/server/handlers"
 	"github.com/KryukovO/metricscollector/internal/storage/memstorage"
@@ -11,7 +13,11 @@ import (
 
 func Run(c *config.Config) error {
 	// Инициализация хранилища
-	s := memstorage.NewMemStorage()
+	s, err := memstorage.NewMemStorage(c.FileStoragePath, c.Restore, time.Duration(c.StoreInterval)*time.Second)
+	if err != nil {
+		return err
+	}
+	defer s.Close()
 
 	// Инициализация сервера
 	// TODO: переопределить e.HTTPErrorHandler, чтобы он не заполнял тело ответа

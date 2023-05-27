@@ -14,6 +14,9 @@ func main() {
 	c := config.NewConfig()
 
 	flag.StringVar(&c.HTTPAddress, "a", "localhost:8080", "Server endpoint address")
+	flag.UintVar(&c.StoreInterval, "i", 300, "Store interval")
+	flag.StringVar(&c.FileStoragePath, "f", "/tmp/metrics-db.json", "File storage path")
+	flag.BoolVar(&c.Restore, "r", true, "Restore")
 	flag.Parse()
 
 	log.SetFormatter(&log.TextFormatter{
