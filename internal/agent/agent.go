@@ -2,6 +2,7 @@ package agent
 
 import (
 	"bytes"
+	"compress/gzip"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -139,12 +140,20 @@ func sendMetric(client *http.Client, sAddr string, mtrc *metric.Metrics) error {
 		return err
 	}
 
-	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(body))
+	var buf bytes.Buffer
+	gz := gzip.NewWriter(&buf)
+	if _, err = gz.Write(body); err != nil {
+		return err
+	}
+	gz.Close()
+
+	req, err := http.NewRequest(http.MethodPost, url, &buf)
 	if err != nil {
 		return err
 	}
 
 	req.Header.Add("Content-Type", "application/json")
+	req.Header.Set("Content-Encoding", "gzip")
 
 	resp, err := client.Do(req)
 	if err != nil {
@@ -155,7 +164,6 @@ func sendMetric(client *http.Client, sAddr string, mtrc *metric.Metrics) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		log.Infof("%v", mtrc)
 		return errors.New(resp.Status)
 	}
 

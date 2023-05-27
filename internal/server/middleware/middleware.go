@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"net/http"
 	"strings"
 	"time"
 
@@ -38,7 +39,21 @@ func GZipMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 		if supportsGzip {
 			cw := models.NewCompressWriter(e.Response().Writer, acceptTypes)
 			e.Response().Writer = cw
-			// Note: Закрытие cw вызывается в методе cw.Write
+		}
+
+		// Проверка сжаты ли данные запроса
+		contentEncoding := e.Request().Header.Get("Content-Encoding")
+		sendsGzip := strings.Contains(contentEncoding, "gzip")
+		if sendsGzip {
+			cr, err := models.NewCompressReader(e.Request().Body)
+			if err != nil {
+				log.Infof("something went wrong: %s", err.Error())
+				return e.NoContent(http.StatusInternalServerError)
+			}
+
+			// Меняем тело запроса на новое
+			e.Request().Body = cr
+			defer cr.Close()
 		}
 
 		return next(e)
