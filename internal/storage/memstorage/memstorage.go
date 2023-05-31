@@ -1,79 +1,150 @@
 package memstorage
 
 import (
+	"encoding/json"
+	"os"
+	"time"
+
 	"github.com/KryukovO/metricscollector/internal/metric"
 	"github.com/KryukovO/metricscollector/internal/storage"
 )
 
 type MemStorage struct {
-	storage map[string]interface{}
+	storage []metric.Metrics
+
+	fileStoragePath string
+	storeInterval   time.Duration
+	tickerDone      chan struct{}
 }
 
-func New() *MemStorage {
-	return &MemStorage{
-		storage: make(map[string]interface{}),
+func NewMemStorage(file string, restore bool, storeInterval time.Duration) (*MemStorage, error) {
+	s := &MemStorage{
+		storage:         make([]metric.Metrics, 0),
+		fileStoragePath: file,
+		storeInterval:   storeInterval,
 	}
+	if restore {
+		err := s.load()
+		if err != nil {
+			return nil, err
+		}
+	}
+	if storeInterval > 0 {
+		s.tickerDone = make(chan struct{})
+		ticker := time.NewTicker(storeInterval)
+		go func() {
+			for {
+				select {
+				case <-s.tickerDone:
+					s.Save()
+					return
+				case <-ticker.C:
+					s.Save()
+				}
+			}
+		}()
+	}
+
+	return s, nil
 }
 
-func (s *MemStorage) GetAll() map[string]interface{} {
+func (s *MemStorage) GetAll() []metric.Metrics {
 	return s.storage
 }
 
-func (s *MemStorage) GetValue(mtype string, mname string) (interface{}, bool) {
-	v, ok := s.storage[mname]
-	if !ok {
-		return nil, ok
+func (s *MemStorage) GetValue(mtype string, mname string) (*metric.Metrics, bool) {
+	for _, mtrc := range s.storage {
+		if mtrc.MType == mtype && mtrc.ID == mname {
+			return &mtrc, true
+		}
 	}
-
-	switch mtype {
-	case metric.CounterMetric:
-		_, ok = v.(int64)
-	case metric.GaugeMetric:
-		_, ok = v.(float64)
-	default:
-		ok = false
-	}
-
-	if !ok {
-		return nil, false
-	}
-
-	return v, ok
+	return nil, false
 }
 
-func (s *MemStorage) Update(mtype, mname string, value interface{}) error {
-	if mname == "" {
+func (s *MemStorage) Update(mtrc *metric.Metrics) (err error) {
+	if mtrc.ID == "" {
 		return storage.ErrWrongMetricName
 	}
 
-	switch mtype {
+	var (
+		counterVal *int64
+		gaugeVal   *float64
+	)
+
+	switch mtrc.MType {
 	case metric.CounterMetric:
-		// метрика counter может быть только int64
-		val, ok := value.(int64)
-		if !ok {
+		if mtrc.Delta == nil {
 			return storage.ErrWrongMetricValue
 		}
-
-		cur, ok := s.storage[mname]
-		if ok {
-			s.storage[mname] = cur.(int64) + val
-		} else {
-			s.storage[mname] = value
-		}
+		counterVal = mtrc.Delta
 	case metric.GaugeMetric:
-		// метрика gauge может прийти и как float64, и как int64
-		val, ok := value.(float64)
-		if !ok {
-			valInt, ok := value.(int64)
-			if !ok {
-				return storage.ErrWrongMetricValue
-			}
-			val = float64(valInt)
+		if mtrc.Value == nil {
+			return storage.ErrWrongMetricValue
 		}
-		s.storage[mname] = val
+		gaugeVal = mtrc.Value
 	default:
 		return storage.ErrWrongMetricType
 	}
 
+	defer func() {
+		if s.storeInterval == 0 {
+			err = s.Save()
+		}
+	}()
+
+	for i := range s.storage {
+		if mtrc.MType == s.storage[i].MType && mtrc.ID == s.storage[i].ID {
+			if counterVal != nil {
+				*s.storage[i].Delta += *counterVal
+				mtrc.Delta = s.storage[i].Delta
+			}
+			s.storage[i].Value = gaugeVal
+			return nil
+		}
+	}
+
+	s.storage = append(s.storage, metric.Metrics{
+		ID:    mtrc.ID,
+		MType: mtrc.MType,
+		Delta: counterVal,
+		Value: gaugeVal,
+	})
+
+	return nil
+}
+
+func (s *MemStorage) Save() error {
+	if s.fileStoragePath != "" {
+		file, err := os.OpenFile(s.fileStoragePath, os.O_WRONLY|os.O_CREATE, 0666)
+		if err != nil {
+			return err
+		}
+		defer file.Close()
+		encoder := json.NewEncoder(file)
+		return encoder.Encode(&s.storage)
+	}
+	return nil
+}
+
+func (s *MemStorage) load() error {
+	if s.fileStoragePath != "" {
+		file, err := os.OpenFile(s.fileStoragePath, os.O_RDONLY, 0666)
+		if err != nil {
+			if os.IsNotExist(err) {
+				return nil
+			}
+			return err
+		}
+		defer file.Close()
+		decoder := json.NewDecoder(file)
+		return decoder.Decode(&s.storage)
+	}
+	return nil
+}
+
+func (s *MemStorage) Close() error {
+	if s.tickerDone != nil {
+		s.tickerDone <- struct{}{}
+	}
 	return nil
 }

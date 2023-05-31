@@ -5,32 +5,46 @@ import (
 
 	"github.com/KryukovO/metricscollector/internal/metric"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestGetAll(t *testing.T) {
-	m := map[string]interface{}{
-		"RandomValue": float64(12345.67),
-		"PollCount":   int64(100),
-	}
+	var (
+		counterVal int64 = 100
+		gaugeVal         = 12345.67
+	)
+
 	s := &MemStorage{
-		storage: m,
+		storage: []metric.Metrics{
+			{
+				ID:    "PollCount",
+				MType: metric.CounterMetric,
+				Delta: &counterVal,
+			},
+			{
+				ID:    "RandomValue",
+				MType: metric.GaugeMetric,
+				Value: &gaugeVal,
+			},
+		},
 	}
+
 	v := s.GetAll()
-	assert.Equal(t, m, v)
+	assert.Equal(t, s.storage, v)
 }
 
 func TestGetValue(t *testing.T) {
-	m := map[string]interface{}{
-		"RandomValue": float64(12345.67),
-		"PollCount":   int64(100),
-	}
+	var (
+		counterVal int64 = 100
+		gaugeVal         = 12345.67
+	)
 
 	type args struct {
 		mtype string
 		mname string
 	}
 	type want struct {
-		value interface{}
+		value *metric.Metrics
 		ok    bool
 	}
 	tests := []struct {
@@ -45,8 +59,12 @@ func TestGetValue(t *testing.T) {
 				mname: "RandomValue",
 			},
 			want: want{
-				value: float64(12345.67),
-				ok:    true,
+				value: &metric.Metrics{
+					ID:    "RandomValue",
+					MType: metric.GaugeMetric,
+					Value: &gaugeVal,
+				},
+				ok: true,
 			},
 		},
 		{
@@ -56,8 +74,12 @@ func TestGetValue(t *testing.T) {
 				mname: "PollCount",
 			},
 			want: want{
-				value: int64(100),
-				ok:    true,
+				value: &metric.Metrics{
+					ID:    "PollCount",
+					MType: metric.CounterMetric,
+					Delta: &counterVal,
+				},
+				ok: true,
 			},
 		},
 		{
@@ -97,9 +119,21 @@ func TestGetValue(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			s := MemStorage{
-				storage: m,
+			s := &MemStorage{
+				storage: []metric.Metrics{
+					{
+						ID:    "PollCount",
+						MType: metric.CounterMetric,
+						Delta: &counterVal,
+					},
+					{
+						ID:    "RandomValue",
+						MType: metric.GaugeMetric,
+						Value: &gaugeVal,
+					},
+				},
 			}
+
 			v, ok := s.GetValue(test.args.mtype, test.args.mname)
 			assert.Equal(t, test.want.value, v)
 			assert.Equal(t, test.want.ok, ok)
@@ -109,97 +143,108 @@ func TestGetValue(t *testing.T) {
 }
 
 func TestUpdate(t *testing.T) {
-	type args struct {
-		mtype string
-		mname string
-		value interface{}
-	}
+	var (
+		counterVal int64 = 100
+		gaugeVal         = 12345.67
+	)
+
 	tests := []struct {
 		name    string
-		args    args
+		arg     metric.Metrics
 		wantErr bool
 	}{
 		{
-			name: "Correct gauge update #1",
-			args: args{
-				mtype: metric.GaugeMetric,
-				mname: "Mallocs",
-				value: float64(100.0001),
+			name: "Correct gauge update",
+			arg: metric.Metrics{
+				ID:    "RandomValue",
+				MType: metric.GaugeMetric,
+				Value: &gaugeVal,
 			},
 			wantErr: false,
 		},
 		{
-			name: "Correct gauge update #2",
-			args: args{
-				mtype: metric.GaugeMetric,
-				mname: "Mallocs",
-				value: int64(100),
+			name: "Correct counter update",
+			arg: metric.Metrics{
+				ID:    "PollCount",
+				MType: metric.CounterMetric,
+				Delta: &counterVal,
 			},
 			wantErr: false,
 		},
 		{
-			name: "Correct counter update #2",
-			args: args{
-				mtype: metric.CounterMetric,
-				mname: "PollCount",
-				value: int64(1),
+			name: "Incorrect gauge value #1",
+			arg: metric.Metrics{
+				ID:    "RandomValue",
+				MType: metric.GaugeMetric,
 			},
-			wantErr: false,
+			wantErr: true,
 		},
 		{
-			name: "Incorrect gauge value",
-			args: args{
-				mtype: metric.GaugeMetric,
-				mname: "Mallocs",
-				value: "value",
+			name: "Incorrect gauge value #2",
+			arg: metric.Metrics{
+				ID:    "RandomValue",
+				MType: metric.GaugeMetric,
+				Delta: &counterVal,
 			},
 			wantErr: true,
 		},
 		{
 			name: "Incorrect counter value #1",
-			args: args{
-				mtype: metric.CounterMetric,
-				mname: "PollCount",
-				value: float64(100.0001),
+			arg: metric.Metrics{
+				ID:    "PollCount",
+				MType: metric.CounterMetric,
 			},
 			wantErr: true,
 		},
 		{
 			name: "Incorrect counter value #2",
-			args: args{
-				mtype: metric.CounterMetric,
-				mname: "PollCount",
-				value: "value",
+			arg: metric.Metrics{
+				ID:    "PollCount",
+				MType: metric.CounterMetric,
+				Value: &gaugeVal,
 			},
 			wantErr: true,
 		},
 		{
-			name: "Incorrect metric type",
-			args: args{
-				mtype: "metric",
-				mname: "PollCount",
-				value: int64(1),
+			name: "Incorrect metric type #1",
+			arg: metric.Metrics{
+				ID:    "PollCount",
+				MType: "metric",
+				Delta: &counterVal,
+			},
+			wantErr: true,
+		},
+		{
+			name: "Incorrect metric type #2",
+			arg: metric.Metrics{
+				ID:    "RandomValue",
+				MType: "metric",
+				Value: &gaugeVal,
 			},
 			wantErr: true,
 		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			m := make(map[string]interface{})
 			s := &MemStorage{
-				storage: m,
+				storage: make([]metric.Metrics, 0),
 			}
 
-			err := s.Update(test.args.mtype, test.args.mname, test.args.value)
-			v, ok := m[test.args.mname]
+			err := s.Update(&test.arg)
 
 			if test.wantErr {
 				assert.Error(t, err)
-				assert.Equal(t, false, ok, "The update returned an error, but the value was saved")
+				assert.Equal(t, true, len(s.storage) == 0, "The update returned an error, but the value was saved")
 			} else {
 				assert.NoError(t, err)
-				assert.Equal(t, true, ok, "The update was successful, but the value was not saved")
-				assert.EqualValues(t, test.args.value, v, "Saved value '%v' is not equal to expected '%v'", test.args.value, v)
+				require.Equal(t, true, len(s.storage) == 1, "The update was successful, but the value was not saved")
+				v := s.storage[0]
+				if test.arg.Delta != nil {
+					assert.EqualValues(t, *test.arg.Delta, *v.Delta, "Saved value '%v' is not equal to expected '%v'", *v.Delta, *test.arg.Delta)
+				}
+				if test.arg.Value != nil {
+					assert.EqualValues(t, *test.arg.Value, *v.Value, "Saved value '%v' is not equal to expected '%v'", *v.Value, *test.arg.Value)
+				}
 			}
 		})
 	}

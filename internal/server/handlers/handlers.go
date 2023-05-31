@@ -17,7 +17,10 @@ func SetHandlers(e *echo.Echo, s storage.Storage) error {
 		return err
 	}
 
-	e.Use(middleware.LoggingMiddlewarefunc)
+	e.Use(
+		middleware.LoggingMiddleware,
+		middleware.GZipMiddleware,
+	)
 
 	return nil
 }
