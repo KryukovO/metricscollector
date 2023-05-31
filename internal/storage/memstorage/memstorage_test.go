@@ -10,8 +10,8 @@ import (
 
 func TestGetAll(t *testing.T) {
 	var (
-		counterVal int64   = 100
-		gaugeVal   float64 = 12345.67
+		counterVal int64 = 100
+		gaugeVal         = 12345.67
 	)
 
 	s := &MemStorage{
@@ -35,8 +35,8 @@ func TestGetAll(t *testing.T) {
 
 func TestGetValue(t *testing.T) {
 	var (
-		counterVal int64   = 100
-		gaugeVal   float64 = 12345.67
+		counterVal int64 = 100
+		gaugeVal         = 12345.67
 	)
 
 	type args struct {
@@ -144,8 +144,8 @@ func TestGetValue(t *testing.T) {
 
 func TestUpdate(t *testing.T) {
 	var (
-		counterVal int64   = 100
-		gaugeVal   float64 = 12345.67
+		counterVal int64 = 100
+		gaugeVal         = 12345.67
 	)
 
 	tests := []struct {
