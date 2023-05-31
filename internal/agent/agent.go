@@ -51,7 +51,13 @@ func Run(c *config.Config) error {
 		// после отправки сбрасываем текущие сохраненные значения метрик
 		if time.Since(lastReport) > time.Duration(c.ReportInterval)*time.Second {
 			for mname, mval := range m {
-				err := sendMetric(&client, c.ServerAddress, metric.NewMetrics(mname, mval))
+				mtrc, err := metric.NewMetrics(mname, mval)
+				if err != nil {
+					log.Infof("error sending '%s' metric value: %s", mname, err.Error())
+					continue
+				}
+
+				err = sendMetric(&client, c.ServerAddress, mtrc)
 				if err == ErrClientIsNil {
 					return err
 				}
@@ -83,9 +89,9 @@ func scanMetrics(m map[string]interface{}, rnd *rand.Rand) error {
 		m["PollCount"] = int64(0)
 	}
 
-	var rtm runtime.MemStats
+	rtm := &runtime.MemStats{}
 
-	runtime.ReadMemStats(&rtm)
+	runtime.ReadMemStats(rtm)
 
 	m["Alloc"] = float64(rtm.Alloc)
 	m["BuckHashSys"] = float64(rtm.BuckHashSys)
@@ -140,14 +146,14 @@ func sendMetric(client *http.Client, sAddr string, mtrc *metric.Metrics) error {
 		return err
 	}
 
-	var buf bytes.Buffer
-	gz := gzip.NewWriter(&buf)
+	buf := &bytes.Buffer{}
+	gz := gzip.NewWriter(buf)
 	if _, err = gz.Write(body); err != nil {
 		return err
 	}
 	gz.Close()
 
-	req, err := http.NewRequest(http.MethodPost, url, &buf)
+	req, err := http.NewRequest(http.MethodPost, url, buf)
 	if err != nil {
 		return err
 	}

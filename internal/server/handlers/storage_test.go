@@ -136,8 +136,7 @@ func TestUpdateHandler(t *testing.T) {
 }
 
 func TestGetValueHandler(t *testing.T) {
-	counterVal := new(int64)
-	*counterVal = 100
+	var counterVal int64 = 100
 
 	type args struct {
 		url    string
@@ -204,7 +203,7 @@ func TestGetValueHandler(t *testing.T) {
 			err = stor.Update(&metric.Metrics{
 				ID:    "PollCount",
 				MType: metric.CounterMetric,
-				Delta: counterVal,
+				Delta: &counterVal,
 			})
 			require.NoError(t, err)
 			s := StorageController{
@@ -222,12 +221,11 @@ func TestGetValueHandler(t *testing.T) {
 }
 
 func TestGetAllHandler(t *testing.T) {
-	counterVal := new(int64)
-	*counterVal = 100
+	var counterVal int64 = 100
 	mtrc := &metric.Metrics{
 		ID:    "PollCount",
 		MType: metric.CounterMetric,
-		Delta: counterVal,
+		Delta: &counterVal,
 	}
 
 	type args struct {

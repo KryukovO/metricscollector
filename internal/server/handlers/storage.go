@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/KryukovO/metricscollector/internal/metric"
 	"github.com/KryukovO/metricscollector/internal/storage"
@@ -54,9 +55,8 @@ func (c *StorageController) updateHandler(e echo.Context) error {
 		// Он знает только то, что нам должно прийти значение int64 или float64.
 		// И так как метрика gauge (float64) может прийти целым значением и преобразоваться в int64,
 		// то пишем полученное значение и в counterVal, и в gaugeVal.
-		counterVal = new(int64)
+		counterVal = &v
 		gaugeVal = new(float64)
-		*counterVal = v
 		*gaugeVal = float64(v)
 	} else {
 		gaugeVal = new(float64)
@@ -161,16 +161,19 @@ func (c *StorageController) getValueJSONHandler(e echo.Context) error {
 func (c *StorageController) getAllHandler(e echo.Context) error {
 	values := c.storage.GetAll()
 
-	page := "<table><tr><th>Metric name</th><th>Metric type</th><th>Value</th></tr>%s</table>"
-	var rows string
+	builder := strings.Builder{}
+
+	builder.WriteString("<table><tr><th>Metric name</th><th>Metric type</th><th>Value</th></tr>")
 	for _, v := range values {
 		if v.Delta != nil {
-			rows += fmt.Sprintf("<tr><td>%s</td><td>%s</td><td>%d</td></tr>", v.ID, v.MType, *v.Delta)
+			builder.WriteString(fmt.Sprintf("<tr><td>%s</td><td>%s</td><td>%d</td></tr>", v.ID, v.MType, *v.Delta))
 		} else {
-			rows += fmt.Sprintf("<tr><td>%s</td><td>%s</td><td>%s</td></tr>", v.ID, v.MType, strconv.FormatFloat(*v.Value, 'f', -1, 64))
+			builder.WriteString(
+				fmt.Sprintf("<tr><td>%s</td><td>%s</td><td>%s</td></tr>", v.ID, v.MType, strconv.FormatFloat(*v.Value, 'f', -1, 64)),
+			)
 		}
 	}
-	page = fmt.Sprintf(page, rows)
+	builder.WriteString("</table>")
 
-	return e.HTML(http.StatusOK, page)
+	return e.HTML(http.StatusOK, builder.String())
 }

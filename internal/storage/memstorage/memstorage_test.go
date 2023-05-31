@@ -10,23 +10,21 @@ import (
 
 func TestGetAll(t *testing.T) {
 	var (
-		counterVal = new(int64)
-		gaugeVal   = new(float64)
+		counterVal int64   = 100
+		gaugeVal   float64 = 12345.67
 	)
-	*counterVal = 100
-	*gaugeVal = 12345.67
 
 	s := &MemStorage{
 		storage: []metric.Metrics{
 			{
 				ID:    "PollCount",
 				MType: metric.CounterMetric,
-				Delta: counterVal,
+				Delta: &counterVal,
 			},
 			{
 				ID:    "RandomValue",
 				MType: metric.GaugeMetric,
-				Value: gaugeVal,
+				Value: &gaugeVal,
 			},
 		},
 	}
@@ -37,11 +35,9 @@ func TestGetAll(t *testing.T) {
 
 func TestGetValue(t *testing.T) {
 	var (
-		counterVal = new(int64)
-		gaugeVal   = new(float64)
+		counterVal int64   = 100
+		gaugeVal   float64 = 12345.67
 	)
-	*counterVal = 100
-	*gaugeVal = 12345.67
 
 	type args struct {
 		mtype string
@@ -66,7 +62,7 @@ func TestGetValue(t *testing.T) {
 				value: &metric.Metrics{
 					ID:    "RandomValue",
 					MType: metric.GaugeMetric,
-					Value: gaugeVal,
+					Value: &gaugeVal,
 				},
 				ok: true,
 			},
@@ -81,7 +77,7 @@ func TestGetValue(t *testing.T) {
 				value: &metric.Metrics{
 					ID:    "PollCount",
 					MType: metric.CounterMetric,
-					Delta: counterVal,
+					Delta: &counterVal,
 				},
 				ok: true,
 			},
@@ -128,12 +124,12 @@ func TestGetValue(t *testing.T) {
 					{
 						ID:    "PollCount",
 						MType: metric.CounterMetric,
-						Delta: counterVal,
+						Delta: &counterVal,
 					},
 					{
 						ID:    "RandomValue",
 						MType: metric.GaugeMetric,
-						Value: gaugeVal,
+						Value: &gaugeVal,
 					},
 				},
 			}
@@ -148,11 +144,9 @@ func TestGetValue(t *testing.T) {
 
 func TestUpdate(t *testing.T) {
 	var (
-		counterVal = new(int64)
-		gaugeVal   = new(float64)
+		counterVal int64   = 100
+		gaugeVal   float64 = 12345.67
 	)
-	*counterVal = 100
-	*gaugeVal = 12345.67
 
 	tests := []struct {
 		name    string
@@ -164,7 +158,7 @@ func TestUpdate(t *testing.T) {
 			arg: metric.Metrics{
 				ID:    "RandomValue",
 				MType: metric.GaugeMetric,
-				Value: gaugeVal,
+				Value: &gaugeVal,
 			},
 			wantErr: false,
 		},
@@ -173,7 +167,7 @@ func TestUpdate(t *testing.T) {
 			arg: metric.Metrics{
 				ID:    "PollCount",
 				MType: metric.CounterMetric,
-				Delta: counterVal,
+				Delta: &counterVal,
 			},
 			wantErr: false,
 		},
@@ -190,7 +184,7 @@ func TestUpdate(t *testing.T) {
 			arg: metric.Metrics{
 				ID:    "RandomValue",
 				MType: metric.GaugeMetric,
-				Delta: counterVal,
+				Delta: &counterVal,
 			},
 			wantErr: true,
 		},
@@ -207,7 +201,7 @@ func TestUpdate(t *testing.T) {
 			arg: metric.Metrics{
 				ID:    "PollCount",
 				MType: metric.CounterMetric,
-				Value: gaugeVal,
+				Value: &gaugeVal,
 			},
 			wantErr: true,
 		},
@@ -216,7 +210,7 @@ func TestUpdate(t *testing.T) {
 			arg: metric.Metrics{
 				ID:    "PollCount",
 				MType: "metric",
-				Delta: counterVal,
+				Delta: &counterVal,
 			},
 			wantErr: true,
 		},
@@ -225,7 +219,7 @@ func TestUpdate(t *testing.T) {
 			arg: metric.Metrics{
 				ID:    "RandomValue",
 				MType: "metric",
-				Value: gaugeVal,
+				Value: &gaugeVal,
 			},
 			wantErr: true,
 		},
