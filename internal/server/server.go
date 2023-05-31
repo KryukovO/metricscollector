@@ -26,19 +26,18 @@ func Run(c *config.Config, l *log.Logger) error {
 	defer s.Close()
 
 	// Подключение к БД
-	lg.Infof("Connecting to the database: %s", c.DSN)
 	db, err := sql.Open("pgx", c.DSN)
 	if err != nil {
 		return err
 	}
 	err = db.Ping()
-	if err != nil {
-		return err
+	if err == nil {
+		lg.Info("Database connection established")
+		defer func() {
+			db.Close()
+			lg.Info("Database connection closed")
+		}()
 	}
-	defer func() {
-		db.Close()
-		lg.Info("Database connection closed")
-	}()
 
 	// Инициализация сервера
 	// TODO: переопределить e.HTTPErrorHandler, чтобы он не заполнял тело ответа

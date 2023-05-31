@@ -35,6 +35,10 @@ func SetHandlers(e *echo.Echo, s storage.Storage, l *log.Logger, db *sql.DB) err
 }
 
 func pingHandler(e echo.Context) error {
+	if dbcon == nil {
+		return e.NoContent(http.StatusInternalServerError)
+	}
+
 	err := dbcon.Ping()
 	if err != nil {
 		return e.NoContent(http.StatusInternalServerError)
