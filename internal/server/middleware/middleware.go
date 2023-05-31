@@ -10,24 +10,36 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func LoggingMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
+type MiddlewareManager struct {
+	l *log.Logger
+}
+
+func NewMiddlewareManager(l *log.Logger) *MiddlewareManager {
+	lg := log.StandardLogger()
+	if l != nil {
+		lg = l
+	}
+	return &MiddlewareManager{l: lg}
+}
+
+func (mw *MiddlewareManager) LoggingMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 	return echo.HandlerFunc(func(e echo.Context) (err error) {
-		log.Infof("recieved query with method %s: %s", e.Request().Method, e.Request().RequestURI)
+		mw.l.Infof("recieved query with method %s: %s", e.Request().Method, e.Request().RequestURI)
 
 		ts := time.Now()
 		res := next(e)
 
 		if res != nil {
-			log.Infof("query response status: %d; size: %d; duration: %s", res.(*echo.HTTPError).Code, e.Response().Size, time.Since(ts))
+			mw.l.Infof("query response status: %d; size: %d; duration: %s", res.(*echo.HTTPError).Code, e.Response().Size, time.Since(ts))
 		} else {
-			log.Infof("query response status: %d; size: %d; duration: %s", e.Response().Status, e.Response().Size, time.Since(ts))
+			mw.l.Infof("query response status: %d; size: %d; duration: %s", e.Response().Status, e.Response().Size, time.Since(ts))
 		}
 
 		return res
 	})
 }
 
-func GZipMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
+func (mw *MiddlewareManager) GZipMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 	return echo.HandlerFunc(func(e echo.Context) (err error) {
 		// Допустимые для сжатия форматы данных в ответе
 		acceptTypes := []string{"application/json", "text/html"}
@@ -47,7 +59,7 @@ func GZipMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 		if sendsGzip {
 			cr, err := models.NewCompressReader(e.Request().Body)
 			if err != nil {
-				log.Infof("something went wrong: %s", err.Error())
+				mw.l.Infof("something went wrong: %s", err.Error())
 				return e.NoContent(http.StatusInternalServerError)
 			}
 

@@ -12,6 +12,7 @@ import (
 	"github.com/KryukovO/metricscollector/internal/metric"
 	"github.com/KryukovO/metricscollector/internal/storage/memstorage"
 	"github.com/labstack/echo"
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -124,6 +125,7 @@ func TestUpdateHandler(t *testing.T) {
 			require.NoError(t, err)
 			s := StorageController{
 				storage: m,
+				l:       logrus.StandardLogger(),
 			}
 			s.updateHandler(c)
 
@@ -208,6 +210,7 @@ func TestGetValueHandler(t *testing.T) {
 			require.NoError(t, err)
 			s := StorageController{
 				storage: stor,
+				l:       logrus.StandardLogger(),
 			}
 			s.getValueHandler(c)
 
@@ -274,6 +277,7 @@ func TestGetAllHandler(t *testing.T) {
 			require.NoError(t, err)
 			s := StorageController{
 				storage: stor,
+				l:       logrus.StandardLogger(),
 			}
 			err = s.getAllHandler(c)
 			require.NoError(t, err)

@@ -5,6 +5,7 @@ type Config struct {
 	StoreInterval   uint   `env:"STORE_INTERVAL"`    // Интервал сохранения значения метрик в файл в секундах
 	FileStoragePath string `env:"FILE_STORAGE_PATH"` // Полное имя файла, куда сохраняются текущие значения метрик
 	Restore         bool   `env:"RESTORE"`           // Признак загрузки значений метрик из файла при запуске сервера
+	DSN             string `env:"DATABASE_DSN"`      // Адрес подключения к БД
 }
 
 func NewConfig() *Config {

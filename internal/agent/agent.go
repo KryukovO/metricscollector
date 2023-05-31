@@ -24,8 +24,13 @@ var (
 	ErrMetricIsNil  = errors.New("metric is nil")
 )
 
-func Run(c *config.Config) error {
-	log.Info("Agent is running...")
+func Run(c *config.Config, l *log.Logger) error {
+	lg := log.StandardLogger()
+	if l != nil {
+		lg = l
+	}
+
+	lg.Info("Agent is running...")
 
 	rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
 
@@ -53,7 +58,7 @@ func Run(c *config.Config) error {
 			for mname, mval := range m {
 				mtrc, err := metric.NewMetrics(mname, mval)
 				if err != nil {
-					log.Infof("error sending '%s' metric value: %s", mname, err.Error())
+					lg.Infof("error sending '%s' metric value: %s", mname, err.Error())
 					continue
 				}
 
@@ -62,11 +67,11 @@ func Run(c *config.Config) error {
 					return err
 				}
 				if err != nil {
-					log.Infof("error sending '%s' metric value: %s", mname, err.Error())
+					lg.Infof("error sending '%s' metric value: %s", mname, err.Error())
 				}
 			}
 
-			log.Info("metrics sent")
+			lg.Info("metrics sent")
 			lastReport = time.Now()
 			m = make(map[string]interface{})
 		}
