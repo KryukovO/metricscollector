@@ -30,7 +30,8 @@ func TestGetAll(t *testing.T) {
 		},
 	}
 
-	v := s.GetAll(context.Background())
+	v, err := s.GetAll(context.Background())
+	assert.NoError(t, err)
 	assert.Equal(t, s.storage, v)
 }
 
@@ -135,7 +136,8 @@ func TestGetValue(t *testing.T) {
 				},
 			}
 
-			v := s.GetValue(context.Background(), test.args.mtype, test.args.mname)
+			v, err := s.GetValue(context.Background(), test.args.mtype, test.args.mname)
+			assert.NoError(t, err)
 			assert.Equal(t, test.want.value, v)
 		})
 	}

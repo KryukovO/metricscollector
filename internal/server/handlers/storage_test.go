@@ -313,7 +313,8 @@ func TestGetAllHandler(t *testing.T) {
 			require.NoError(t, err)
 
 			var rowWant string
-			stor := repo.GetAll(context.Background())
+			stor, err := repo.GetAll(context.Background())
+			require.NoError(t, err)
 			for _, mtrc := range stor {
 				if mtrc.Delta != nil {
 					rowWant += fmt.Sprintf(test.want.dataFormat, mtrc.ID, mtrc.MType, *mtrc.Delta)

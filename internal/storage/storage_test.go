@@ -52,7 +52,8 @@ func TestGetAll(t *testing.T) {
 	require.NoError(t, err)
 	s := storage{repo: repo}
 
-	v := s.GetAll(context.Background())
+	v, err := s.GetAll(context.Background())
+	assert.NoError(t, err)
 	assert.Equal(t, stor, v)
 }
 
@@ -66,14 +67,10 @@ func TestGetValue(t *testing.T) {
 		mtype string
 		mname string
 	}
-	type want struct {
-		value *metric.Metrics
-		ok    bool
-	}
 	tests := []struct {
-		name string
-		args args
-		want want
+		name     string
+		args     args
+		expected *metric.Metrics
 	}{
 		{
 			name: "Existing gauge value",
@@ -81,13 +78,10 @@ func TestGetValue(t *testing.T) {
 				mtype: "gauge",
 				mname: "RandomValue",
 			},
-			want: want{
-				value: &metric.Metrics{
-					ID:    "RandomValue",
-					MType: metric.GaugeMetric,
-					Value: &gaugeVal,
-				},
-				ok: true,
+			expected: &metric.Metrics{
+				ID:    "RandomValue",
+				MType: metric.GaugeMetric,
+				Value: &gaugeVal,
 			},
 		},
 		{
@@ -96,13 +90,10 @@ func TestGetValue(t *testing.T) {
 				mtype: "counter",
 				mname: "PollCount",
 			},
-			want: want{
-				value: &metric.Metrics{
-					ID:    "PollCount",
-					MType: metric.CounterMetric,
-					Delta: &counterVal,
-				},
-				ok: true,
+			expected: &metric.Metrics{
+				ID:    "PollCount",
+				MType: metric.CounterMetric,
+				Delta: &counterVal,
 			},
 		},
 		{
@@ -111,10 +102,7 @@ func TestGetValue(t *testing.T) {
 				mtype: "gauge",
 				mname: "Alloc",
 			},
-			want: want{
-				value: nil,
-				ok:    false,
-			},
+			expected: nil,
 		},
 		{
 			name: "Metric with name exists, but type incorrect",
@@ -122,10 +110,7 @@ func TestGetValue(t *testing.T) {
 				mtype: "gauge",
 				mname: "PollCount",
 			},
-			want: want{
-				value: nil,
-				ok:    false,
-			},
+			expected: nil,
 		},
 		{
 			name: "Incorrect metric type",
@@ -133,10 +118,7 @@ func TestGetValue(t *testing.T) {
 				mtype: "metric",
 				mname: "PollCount",
 			},
-			want: want{
-				value: nil,
-				ok:    false,
-			},
+			expected: nil,
 		},
 	}
 
@@ -146,12 +128,11 @@ func TestGetValue(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			v, ok := s.GetValue(context.Background(), test.args.mtype, test.args.mname)
-			assert.Equal(t, test.want.value, v)
-			assert.Equal(t, test.want.ok, ok)
+			v, err := s.GetValue(context.Background(), test.args.mtype, test.args.mname)
+			assert.Equal(t, test.expected, v)
+			assert.NoError(t, err)
 		})
 	}
-
 }
 
 func TestUpdate(t *testing.T) {
@@ -247,11 +228,13 @@ func TestUpdate(t *testing.T) {
 
 			if test.wantErr {
 				assert.Error(t, err)
-				stor := repo.GetAll(context.Background())
+				stor, err := repo.GetAll(context.Background())
+				require.NoError(t, err)
 				assert.Equal(t, true, len(stor) == 0, "The update returned an error, but the value was saved")
 			} else {
 				assert.NoError(t, err)
-				stor := repo.GetAll(context.Background())
+				stor, err := repo.GetAll(context.Background())
+				require.NoError(t, err)
 				require.Equal(t, true, len(stor) == 1, "The update was successful, but the value was not saved")
 				v := stor[0]
 				if test.arg.Delta != nil {

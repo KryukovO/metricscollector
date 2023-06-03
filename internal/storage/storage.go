@@ -16,13 +16,12 @@ func NewStorage(repo StorageRepo) *storage {
 	}
 }
 
-func (s *storage) GetAll(ctx context.Context) []metric.Metrics {
+func (s *storage) GetAll(ctx context.Context) ([]metric.Metrics, error) {
 	return s.repo.GetAll(ctx)
 }
 
-func (s *storage) GetValue(ctx context.Context, mtype string, mname string) (*metric.Metrics, bool) {
-	val := s.repo.GetValue(ctx, mtype, mname)
-	return val, val != nil
+func (s *storage) GetValue(ctx context.Context, mtype string, mname string) (*metric.Metrics, error) {
+	return s.repo.GetValue(ctx, mtype, mname)
 }
 
 func (s *storage) Update(ctx context.Context, mtrc *metric.Metrics) error {
@@ -46,6 +45,10 @@ func (s *storage) Update(ctx context.Context, mtrc *metric.Metrics) error {
 	}
 
 	return s.repo.Update(ctx, mtrc)
+}
+
+func (s *storage) Ping() bool {
+	return s.repo.Ping() == nil
 }
 
 func (s *storage) Close() error {

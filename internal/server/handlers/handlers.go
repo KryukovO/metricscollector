@@ -1,9 +1,7 @@
 package handlers
 
 import (
-	"database/sql"
 	"errors"
-	"net/http"
 
 	"github.com/KryukovO/metricscollector/internal/server/middleware"
 	"github.com/KryukovO/metricscollector/internal/storage"
@@ -11,9 +9,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-var dbcon *sql.DB
-
-func SetHandlers(e *echo.Echo, s storage.Storage, l *log.Logger, db *sql.DB) error {
+func SetHandlers(e *echo.Echo, s storage.Storage, l *log.Logger) error {
 	if e == nil {
 		return errors.New("server instance is nil")
 	}
@@ -21,7 +17,6 @@ func SetHandlers(e *echo.Echo, s storage.Storage, l *log.Logger, db *sql.DB) err
 	if err := setStorageHandlers(e.Router(), s, l); err != nil {
 		return err
 	}
-	e.Router().Add(http.MethodGet, "/ping", pingHandler)
 
 	mw := middleware.NewMiddlewareManager(l)
 	e.Use(
@@ -29,19 +24,5 @@ func SetHandlers(e *echo.Echo, s storage.Storage, l *log.Logger, db *sql.DB) err
 		mw.GZipMiddleware,
 	)
 
-	dbcon = db
-
 	return nil
-}
-
-func pingHandler(e echo.Context) error {
-	if dbcon == nil {
-		return e.NoContent(http.StatusInternalServerError)
-	}
-
-	err := dbcon.Ping()
-	if err != nil {
-		return e.NoContent(http.StatusInternalServerError)
-	}
-	return e.NoContent(http.StatusOK)
 }

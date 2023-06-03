@@ -10,11 +10,11 @@ import (
 )
 
 type memStorage struct {
-	storage []metric.Metrics
+	storage []metric.Metrics // in-memory хранилище метрик
 
-	fileStoragePath string
-	storeInterval   time.Duration
-	tickerDone      chan struct{}
+	fileStoragePath string        // путь до файла, в который сохраняются метрики
+	syncSave        bool          // признак синхронной записи в файл
+	closeSaving     chan struct{} // канал, принимающий сообщение о необходимости прекратить сохранения в файл
 	// TODO: RWMutex для защиты доступа к данным
 }
 
@@ -22,7 +22,7 @@ func NewMemStorage(file string, restore bool, storeInterval time.Duration) (*mem
 	s := &memStorage{
 		storage:         make([]metric.Metrics, 0),
 		fileStoragePath: file,
-		storeInterval:   storeInterval,
+		syncSave:        storeInterval == 0,
 	}
 	if restore {
 		err := s.load()
@@ -30,13 +30,13 @@ func NewMemStorage(file string, restore bool, storeInterval time.Duration) (*mem
 			return nil, err
 		}
 	}
-	if storeInterval > 0 {
-		s.tickerDone = make(chan struct{})
+	if file != "" && storeInterval > 0 {
+		s.closeSaving = make(chan struct{})
 		ticker := time.NewTicker(storeInterval)
 		go func() {
 			for {
 				select {
-				case <-s.tickerDone:
+				case <-s.closeSaving:
 					s.save()
 					return
 				case <-ticker.C:
@@ -49,22 +49,22 @@ func NewMemStorage(file string, restore bool, storeInterval time.Duration) (*mem
 	return s, nil
 }
 
-func (s *memStorage) GetAll(ctx context.Context) []metric.Metrics {
-	return s.storage
+func (s *memStorage) GetAll(ctx context.Context) ([]metric.Metrics, error) {
+	return s.storage, nil
 }
 
-func (s *memStorage) GetValue(ctx context.Context, mtype string, mname string) *metric.Metrics {
+func (s *memStorage) GetValue(ctx context.Context, mtype string, mname string) (*metric.Metrics, error) {
 	for _, mtrc := range s.storage {
 		if mtrc.MType == mtype && mtrc.ID == mname {
-			return &mtrc
+			return &mtrc, nil
 		}
 	}
-	return nil
+	return nil, nil
 }
 
 func (s *memStorage) Update(ctx context.Context, mtrc *metric.Metrics) (err error) {
 	defer func() {
-		if s.storeInterval == 0 {
+		if s.syncSave {
 			err = s.save()
 		}
 	}()
@@ -114,9 +114,14 @@ func (s *memStorage) load() error {
 	return nil
 }
 
+func (s *memStorage) Ping() error {
+	return nil
+}
+
 func (s *memStorage) Close() error {
-	if s.tickerDone != nil {
-		s.tickerDone <- struct{}{}
+	if s.closeSaving != nil {
+		s.closeSaving <- struct{}{}
+		s.closeSaving = nil
 	}
 	return nil
 }

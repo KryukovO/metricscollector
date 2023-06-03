@@ -41,6 +41,7 @@ func setStorageHandlers(router *echo.Router, s storage.Storage, l *log.Logger) e
 	router.Add(http.MethodGet, "/value/:mtype/:mname", c.getValueHandler)
 	router.Add(http.MethodPost, "/value/", c.getValueJSONHandler)
 	router.Add(http.MethodGet, "/", c.getAllHandler)
+	router.Add(http.MethodGet, "/ping", c.pingHandler)
 
 	return nil
 }
@@ -130,8 +131,12 @@ func (c *StorageController) getValueHandler(e echo.Context) error {
 	mtype := e.Param("mtype")
 	mname := e.Param("mname")
 
-	v, ok := c.storage.GetValue(e.Request().Context(), mtype, mname)
-	if !ok {
+	v, err := c.storage.GetValue(e.Request().Context(), mtype, mname)
+	if err != nil {
+		c.l.Infof("something went wrong: %s", err.Error())
+		return e.NoContent(http.StatusInternalServerError)
+	}
+	if v == nil {
 		return e.NoContent(http.StatusNotFound)
 	}
 
@@ -156,16 +161,24 @@ func (c *StorageController) getValueJSONHandler(e echo.Context) error {
 		return e.NoContent(http.StatusInternalServerError)
 	}
 
-	m, ok := c.storage.GetValue(e.Request().Context(), mtrc.MType, mtrc.ID)
-	if !ok {
+	v, err := c.storage.GetValue(e.Request().Context(), mtrc.MType, mtrc.ID)
+	if err != nil {
+		c.l.Infof("something went wrong: %s", err.Error())
+		return e.NoContent(http.StatusInternalServerError)
+	}
+	if v == nil {
 		return e.NoContent(http.StatusNotFound)
 	}
 
-	return e.JSON(http.StatusOK, &m)
+	return e.JSON(http.StatusOK, v)
 }
 
 func (c *StorageController) getAllHandler(e echo.Context) error {
-	values := c.storage.GetAll(e.Request().Context())
+	values, err := c.storage.GetAll(e.Request().Context())
+	if err != nil {
+		c.l.Infof("something went wrong: %s", err.Error())
+		return e.NoContent(http.StatusInternalServerError)
+	}
 
 	builder := strings.Builder{}
 
@@ -182,4 +195,11 @@ func (c *StorageController) getAllHandler(e echo.Context) error {
 	builder.WriteString("</table>")
 
 	return e.HTML(http.StatusOK, builder.String())
+}
+
+func (c *StorageController) pingHandler(e echo.Context) error {
+	if c.storage.Ping() {
+		return e.NoContent(http.StatusOK)
+	}
+	return e.NoContent(http.StatusInternalServerError)
 }
