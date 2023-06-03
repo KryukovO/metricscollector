@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"math"
@@ -10,12 +11,50 @@ import (
 	"testing"
 
 	"github.com/KryukovO/metricscollector/internal/metric"
-	"github.com/KryukovO/metricscollector/internal/storage/memstorage"
+	"github.com/KryukovO/metricscollector/internal/storage"
+	"github.com/KryukovO/metricscollector/internal/storage/repository/memstorage"
 	"github.com/labstack/echo"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func newTestStorageRepo(clear bool) (repo storage.StorageRepo, stor []metric.Metrics, err error) {
+	var (
+		counterVal int64 = 100
+		gaugeVal         = 12345.67
+	)
+
+	stor = []metric.Metrics{
+		{
+			ID:    "PollCount",
+			MType: metric.CounterMetric,
+			Delta: &counterVal,
+		},
+		{
+			ID:    "RandomValue",
+			MType: metric.GaugeMetric,
+			Value: &gaugeVal,
+		},
+	}
+
+	repo, err = memstorage.NewMemStorage("", false, 0)
+	if err != nil {
+		return nil, nil, err
+	}
+	if !clear {
+		err = repo.Update(context.Background(), &stor[0])
+		if err != nil {
+			return nil, nil, err
+		}
+		err = repo.Update(context.Background(), &stor[1])
+		if err != nil {
+			return nil, nil, err
+		}
+	}
+
+	return
+}
 
 func TestUpdateHandler(t *testing.T) {
 	type args struct {
@@ -121,10 +160,10 @@ func TestUpdateHandler(t *testing.T) {
 			bound := int(math.Min(float64(len(values)), 1))
 			c.SetParamValues(values[bound:]...)
 
-			m, err := memstorage.NewMemStorage("", false, 0)
+			repo, _, err := newTestStorageRepo(true)
 			require.NoError(t, err)
 			s := StorageController{
-				storage: m,
+				storage: storage.NewStorage(repo),
 				l:       logrus.StandardLogger(),
 			}
 			s.updateHandler(c)
@@ -138,8 +177,6 @@ func TestUpdateHandler(t *testing.T) {
 }
 
 func TestGetValueHandler(t *testing.T) {
-	var counterVal int64 = 100
-
 	type args struct {
 		url    string
 		method string
@@ -200,16 +237,10 @@ func TestGetValueHandler(t *testing.T) {
 			bound := int(math.Min(float64(len(values)), 1))
 			c.SetParamValues(values[bound:]...)
 
-			stor, err := memstorage.NewMemStorage("", false, 0)
-			require.NoError(t, err)
-			err = stor.Update(&metric.Metrics{
-				ID:    "PollCount",
-				MType: metric.CounterMetric,
-				Delta: &counterVal,
-			})
+			repo, _, err := newTestStorageRepo(false)
 			require.NoError(t, err)
 			s := StorageController{
-				storage: stor,
+				storage: storage.NewStorage(repo),
 				l:       logrus.StandardLogger(),
 			}
 			s.getValueHandler(c)
@@ -224,13 +255,6 @@ func TestGetValueHandler(t *testing.T) {
 }
 
 func TestGetAllHandler(t *testing.T) {
-	var counterVal int64 = 100
-	mtrc := &metric.Metrics{
-		ID:    "PollCount",
-		MType: metric.CounterMetric,
-		Delta: &counterVal,
-	}
-
 	type args struct {
 		url    string
 		method string
@@ -238,7 +262,8 @@ func TestGetAllHandler(t *testing.T) {
 	type want struct {
 		status      int
 		contentType string
-		format      string
+		tableFormat string
+		dataFormat  string
 	}
 	tests := []struct {
 		name string
@@ -254,7 +279,8 @@ func TestGetAllHandler(t *testing.T) {
 			want: want{
 				status:      http.StatusOK,
 				contentType: "text/html; charset=UTF-8",
-				format:      "<table><tr><th>Metric name</th><th>Metric type</th><th>Value</th></tr><tr><td>%s</td><td>%s</td><td>%v</td></tr></table>",
+				tableFormat: "<table><tr><th>Metric name</th><th>Metric type</th><th>Value</th></tr>%s</table>",
+				dataFormat:  "<tr><td>%s</td><td>%s</td><td>%v</td></tr>",
 			},
 		},
 	}
@@ -271,12 +297,10 @@ func TestGetAllHandler(t *testing.T) {
 			bound := int(math.Min(float64(len(values)), 1))
 			c.SetParamValues(values[bound:]...)
 
-			stor, err := memstorage.NewMemStorage("", false, 0)
-			require.NoError(t, err)
-			err = stor.Update(mtrc)
+			repo, _, err := newTestStorageRepo(false)
 			require.NoError(t, err)
 			s := StorageController{
-				storage: stor,
+				storage: storage.NewStorage(repo),
 				l:       logrus.StandardLogger(),
 			}
 			err = s.getAllHandler(c)
@@ -288,7 +312,16 @@ func TestGetAllHandler(t *testing.T) {
 			rowRes, err := io.ReadAll(res.Body)
 			require.NoError(t, err)
 
-			rowWant := fmt.Sprintf(test.want.format, mtrc.ID, mtrc.MType, *mtrc.Delta)
+			var rowWant string
+			stor := repo.GetAll(context.Background())
+			for _, mtrc := range stor {
+				if mtrc.Delta != nil {
+					rowWant += fmt.Sprintf(test.want.dataFormat, mtrc.ID, mtrc.MType, *mtrc.Delta)
+				} else if mtrc.Value != nil {
+					rowWant += fmt.Sprintf(test.want.dataFormat, mtrc.ID, mtrc.MType, *mtrc.Value)
+				}
+			}
+			rowWant = fmt.Sprintf(test.want.tableFormat, rowWant)
 
 			assert.Equal(t, test.want.status, res.StatusCode)
 			assert.Equal(t, test.want.contentType, res.Header.Get("Content-Type"))

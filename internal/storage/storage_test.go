@@ -1,36 +1,59 @@
-package memstorage
+package storage
 
 import (
+	"context"
 	"testing"
 
 	"github.com/KryukovO/metricscollector/internal/metric"
+	"github.com/KryukovO/metricscollector/internal/storage/repository/memstorage"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func TestGetAll(t *testing.T) {
+func newTestStorageRepo(clear bool) (repo StorageRepo, stor []metric.Metrics, err error) {
 	var (
 		counterVal int64 = 100
 		gaugeVal         = 12345.67
 	)
 
-	s := &MemStorage{
-		storage: []metric.Metrics{
-			{
-				ID:    "PollCount",
-				MType: metric.CounterMetric,
-				Delta: &counterVal,
-			},
-			{
-				ID:    "RandomValue",
-				MType: metric.GaugeMetric,
-				Value: &gaugeVal,
-			},
+	stor = []metric.Metrics{
+		{
+			ID:    "PollCount",
+			MType: metric.CounterMetric,
+			Delta: &counterVal,
+		},
+		{
+			ID:    "RandomValue",
+			MType: metric.GaugeMetric,
+			Value: &gaugeVal,
 		},
 	}
 
-	v := s.GetAll()
-	assert.Equal(t, s.storage, v)
+	repo, err = memstorage.NewMemStorage("", false, 0)
+	if err != nil {
+		return nil, nil, err
+	}
+	if !clear {
+		err = repo.Update(context.Background(), &stor[0])
+		if err != nil {
+			return nil, nil, err
+		}
+		err = repo.Update(context.Background(), &stor[1])
+		if err != nil {
+			return nil, nil, err
+		}
+	}
+
+	return
+}
+
+func TestGetAll(t *testing.T) {
+	repo, stor, err := newTestStorageRepo(false)
+	require.NoError(t, err)
+	s := storage{repo: repo}
+
+	v := s.GetAll(context.Background())
+	assert.Equal(t, stor, v)
 }
 
 func TestGetValue(t *testing.T) {
@@ -117,24 +140,13 @@ func TestGetValue(t *testing.T) {
 		},
 	}
 
+	repo, _, err := newTestStorageRepo(false)
+	require.NoError(t, err)
+	s := NewStorage(repo)
+
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			s := &MemStorage{
-				storage: []metric.Metrics{
-					{
-						ID:    "PollCount",
-						MType: metric.CounterMetric,
-						Delta: &counterVal,
-					},
-					{
-						ID:    "RandomValue",
-						MType: metric.GaugeMetric,
-						Value: &gaugeVal,
-					},
-				},
-			}
-
-			v, ok := s.GetValue(test.args.mtype, test.args.mname)
+			v, ok := s.GetValue(context.Background(), test.args.mtype, test.args.mname)
 			assert.Equal(t, test.want.value, v)
 			assert.Equal(t, test.want.ok, ok)
 		})
@@ -224,21 +236,24 @@ func TestUpdate(t *testing.T) {
 			wantErr: true,
 		},
 	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			s := &MemStorage{
-				storage: make([]metric.Metrics, 0),
-			}
 
-			err := s.Update(&test.arg)
+	for _, test := range tests {
+		repo, _, err := newTestStorageRepo(true)
+		require.NoError(t, err)
+		s := NewStorage(repo)
+
+		t.Run(test.name, func(t *testing.T) {
+			err := s.Update(context.Background(), &test.arg)
 
 			if test.wantErr {
 				assert.Error(t, err)
-				assert.Equal(t, true, len(s.storage) == 0, "The update returned an error, but the value was saved")
+				stor := repo.GetAll(context.Background())
+				assert.Equal(t, true, len(stor) == 0, "The update returned an error, but the value was saved")
 			} else {
 				assert.NoError(t, err)
-				require.Equal(t, true, len(s.storage) == 1, "The update was successful, but the value was not saved")
-				v := s.storage[0]
+				stor := repo.GetAll(context.Background())
+				require.Equal(t, true, len(stor) == 1, "The update was successful, but the value was not saved")
+				v := stor[0]
 				if test.arg.Delta != nil {
 					assert.EqualValues(t, *test.arg.Delta, *v.Delta, "Saved value '%v' is not equal to expected '%v'", *v.Delta, *test.arg.Delta)
 				}

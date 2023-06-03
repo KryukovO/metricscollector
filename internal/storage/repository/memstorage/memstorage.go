@@ -1,24 +1,25 @@
 package memstorage
 
 import (
+	"context"
 	"encoding/json"
 	"os"
 	"time"
 
 	"github.com/KryukovO/metricscollector/internal/metric"
-	"github.com/KryukovO/metricscollector/internal/storage"
 )
 
-type MemStorage struct {
+type memStorage struct {
 	storage []metric.Metrics
 
 	fileStoragePath string
 	storeInterval   time.Duration
 	tickerDone      chan struct{}
+	// TODO: RWMutex для защиты доступа к данным
 }
 
-func NewMemStorage(file string, restore bool, storeInterval time.Duration) (*MemStorage, error) {
-	s := &MemStorage{
+func NewMemStorage(file string, restore bool, storeInterval time.Duration) (*memStorage, error) {
+	s := &memStorage{
 		storage:         make([]metric.Metrics, 0),
 		fileStoragePath: file,
 		storeInterval:   storeInterval,
@@ -36,10 +37,10 @@ func NewMemStorage(file string, restore bool, storeInterval time.Duration) (*Mem
 			for {
 				select {
 				case <-s.tickerDone:
-					s.Save()
+					s.save()
 					return
 				case <-ticker.C:
-					s.Save()
+					s.save()
 				}
 			}
 		}()
@@ -48,72 +49,43 @@ func NewMemStorage(file string, restore bool, storeInterval time.Duration) (*Mem
 	return s, nil
 }
 
-func (s *MemStorage) GetAll() []metric.Metrics {
+func (s *memStorage) GetAll(ctx context.Context) []metric.Metrics {
 	return s.storage
 }
 
-func (s *MemStorage) GetValue(mtype string, mname string) (*metric.Metrics, bool) {
+func (s *memStorage) GetValue(ctx context.Context, mtype string, mname string) *metric.Metrics {
 	for _, mtrc := range s.storage {
 		if mtrc.MType == mtype && mtrc.ID == mname {
-			return &mtrc, true
+			return &mtrc
 		}
 	}
-	return nil, false
+	return nil
 }
 
-func (s *MemStorage) Update(mtrc *metric.Metrics) (err error) {
-	if mtrc.ID == "" {
-		return storage.ErrWrongMetricName
-	}
-
-	var (
-		counterVal *int64
-		gaugeVal   *float64
-	)
-
-	switch mtrc.MType {
-	case metric.CounterMetric:
-		if mtrc.Delta == nil {
-			return storage.ErrWrongMetricValue
-		}
-		counterVal = mtrc.Delta
-	case metric.GaugeMetric:
-		if mtrc.Value == nil {
-			return storage.ErrWrongMetricValue
-		}
-		gaugeVal = mtrc.Value
-	default:
-		return storage.ErrWrongMetricType
-	}
-
+func (s *memStorage) Update(ctx context.Context, mtrc *metric.Metrics) (err error) {
 	defer func() {
 		if s.storeInterval == 0 {
-			err = s.Save()
+			err = s.save()
 		}
 	}()
 
 	for i := range s.storage {
 		if mtrc.MType == s.storage[i].MType && mtrc.ID == s.storage[i].ID {
-			if counterVal != nil {
-				*s.storage[i].Delta += *counterVal
+			if mtrc.Delta != nil {
+				*s.storage[i].Delta += *mtrc.Delta
 				mtrc.Delta = s.storage[i].Delta
 			}
-			s.storage[i].Value = gaugeVal
+			s.storage[i].Value = mtrc.Value
 			return nil
 		}
 	}
 
-	s.storage = append(s.storage, metric.Metrics{
-		ID:    mtrc.ID,
-		MType: mtrc.MType,
-		Delta: counterVal,
-		Value: gaugeVal,
-	})
+	s.storage = append(s.storage, *mtrc)
 
 	return nil
 }
 
-func (s *MemStorage) Save() error {
+func (s *memStorage) save() error {
 	if s.fileStoragePath != "" {
 		file, err := os.OpenFile(s.fileStoragePath, os.O_WRONLY|os.O_CREATE, 0666)
 		if err != nil {
@@ -126,7 +98,7 @@ func (s *MemStorage) Save() error {
 	return nil
 }
 
-func (s *MemStorage) load() error {
+func (s *memStorage) load() error {
 	if s.fileStoragePath != "" {
 		file, err := os.OpenFile(s.fileStoragePath, os.O_RDONLY, 0666)
 		if err != nil {
@@ -142,7 +114,7 @@ func (s *MemStorage) load() error {
 	return nil
 }
 
-func (s *MemStorage) Close() error {
+func (s *memStorage) Close() error {
 	if s.tickerDone != nil {
 		s.tickerDone <- struct{}{}
 	}

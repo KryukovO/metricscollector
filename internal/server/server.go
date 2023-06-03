@@ -6,7 +6,8 @@ import (
 
 	"github.com/KryukovO/metricscollector/internal/server/config"
 	"github.com/KryukovO/metricscollector/internal/server/handlers"
-	"github.com/KryukovO/metricscollector/internal/storage/memstorage"
+	"github.com/KryukovO/metricscollector/internal/storage"
+	"github.com/KryukovO/metricscollector/internal/storage/repository/memstorage"
 
 	"github.com/labstack/echo"
 	log "github.com/sirupsen/logrus"
@@ -19,10 +20,11 @@ func Run(c *config.Config, l *log.Logger) error {
 	}
 
 	// Инициализация хранилища
-	s, err := memstorage.NewMemStorage(c.FileStoragePath, c.Restore, time.Duration(c.StoreInterval)*time.Second)
+	repo, err := memstorage.NewMemStorage(c.FileStoragePath, c.Restore, time.Duration(c.StoreInterval)*time.Second)
 	if err != nil {
 		return err
 	}
+	s := storage.NewStorage(repo)
 	defer s.Close()
 
 	// Подключение к БД

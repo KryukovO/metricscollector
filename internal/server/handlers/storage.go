@@ -73,7 +73,7 @@ func (c *StorageController) updateHandler(e echo.Context) error {
 		}
 	}
 
-	err = c.storage.Update(&metric.Metrics{
+	err = c.storage.Update(e.Request().Context(), &metric.Metrics{
 		ID:    mname,
 		MType: mtype,
 		Delta: counterVal,
@@ -109,7 +109,7 @@ func (c *StorageController) updateJSONHandler(e echo.Context) error {
 		return e.NoContent(http.StatusInternalServerError)
 	}
 
-	err = c.storage.Update(&mtrc)
+	err = c.storage.Update(e.Request().Context(), &mtrc)
 	if err == storage.ErrWrongMetricName {
 		c.l.Info(err.Error())
 		return e.NoContent(http.StatusNotFound)
@@ -130,7 +130,7 @@ func (c *StorageController) getValueHandler(e echo.Context) error {
 	mtype := e.Param("mtype")
 	mname := e.Param("mname")
 
-	v, ok := c.storage.GetValue(mtype, mname)
+	v, ok := c.storage.GetValue(e.Request().Context(), mtype, mname)
 	if !ok {
 		return e.NoContent(http.StatusNotFound)
 	}
@@ -156,7 +156,7 @@ func (c *StorageController) getValueJSONHandler(e echo.Context) error {
 		return e.NoContent(http.StatusInternalServerError)
 	}
 
-	m, ok := c.storage.GetValue(mtrc.MType, mtrc.ID)
+	m, ok := c.storage.GetValue(e.Request().Context(), mtrc.MType, mtrc.ID)
 	if !ok {
 		return e.NoContent(http.StatusNotFound)
 	}
@@ -165,7 +165,7 @@ func (c *StorageController) getValueJSONHandler(e echo.Context) error {
 }
 
 func (c *StorageController) getAllHandler(e echo.Context) error {
-	values := c.storage.GetAll()
+	values := c.storage.GetAll(e.Request().Context())
 
 	builder := strings.Builder{}
 
