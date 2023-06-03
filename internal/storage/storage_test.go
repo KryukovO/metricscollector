@@ -67,10 +67,14 @@ func TestGetValue(t *testing.T) {
 		mtype string
 		mname string
 	}
-	tests := []struct {
-		name     string
-		args     args
+	type want struct {
 		expected *metric.Metrics
+		wantErr  bool
+	}
+	tests := []struct {
+		name string
+		args args
+		want want
 	}{
 		{
 			name: "Existing gauge value",
@@ -78,10 +82,13 @@ func TestGetValue(t *testing.T) {
 				mtype: "gauge",
 				mname: "RandomValue",
 			},
-			expected: &metric.Metrics{
-				ID:    "RandomValue",
-				MType: metric.GaugeMetric,
-				Value: &gaugeVal,
+			want: want{
+				expected: &metric.Metrics{
+					ID:    "RandomValue",
+					MType: metric.GaugeMetric,
+					Value: &gaugeVal,
+				},
+				wantErr: false,
 			},
 		},
 		{
@@ -90,10 +97,13 @@ func TestGetValue(t *testing.T) {
 				mtype: "counter",
 				mname: "PollCount",
 			},
-			expected: &metric.Metrics{
-				ID:    "PollCount",
-				MType: metric.CounterMetric,
-				Delta: &counterVal,
+			want: want{
+				expected: &metric.Metrics{
+					ID:    "PollCount",
+					MType: metric.CounterMetric,
+					Delta: &counterVal,
+				},
+				wantErr: false,
 			},
 		},
 		{
@@ -102,7 +112,10 @@ func TestGetValue(t *testing.T) {
 				mtype: "gauge",
 				mname: "Alloc",
 			},
-			expected: nil,
+			want: want{
+				expected: nil,
+				wantErr:  false,
+			},
 		},
 		{
 			name: "Metric with name exists, but type incorrect",
@@ -110,15 +123,21 @@ func TestGetValue(t *testing.T) {
 				mtype: "gauge",
 				mname: "PollCount",
 			},
-			expected: nil,
+			want: want{
+				expected: nil,
+				wantErr:  false,
+			},
 		},
 		{
-			name: "Incorrect metric type",
+			name: "Invalid metric type",
 			args: args{
 				mtype: "metric",
 				mname: "PollCount",
 			},
-			expected: nil,
+			want: want{
+				expected: nil,
+				wantErr:  true,
+			},
 		},
 	}
 
@@ -129,8 +148,12 @@ func TestGetValue(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			v, err := s.GetValue(context.Background(), test.args.mtype, test.args.mname)
-			assert.Equal(t, test.expected, v)
-			assert.NoError(t, err)
+			assert.Equal(t, test.want.expected, v)
+			if test.want.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
 		})
 	}
 }

@@ -132,7 +132,7 @@ func (c *StorageController) getValueHandler(e echo.Context) error {
 	mname := e.Param("mname")
 
 	v, err := c.storage.GetValue(e.Request().Context(), mtype, mname)
-	if err != nil {
+	if err != nil && err != storage.ErrWrongMetricType {
 		c.l.Infof("something went wrong: %s", err.Error())
 		return e.NoContent(http.StatusInternalServerError)
 	}
@@ -143,7 +143,6 @@ func (c *StorageController) getValueHandler(e echo.Context) error {
 	if v.Delta != nil {
 		return e.String(http.StatusOK, fmt.Sprintf("%d", *v.Delta))
 	}
-
 	return e.String(http.StatusOK, strconv.FormatFloat(*v.Value, 'f', -1, 64))
 }
 
@@ -162,14 +161,14 @@ func (c *StorageController) getValueJSONHandler(e echo.Context) error {
 	}
 
 	v, err := c.storage.GetValue(e.Request().Context(), mtrc.MType, mtrc.ID)
-	if err != nil {
+	if err != nil && err != storage.ErrWrongMetricType {
 		c.l.Infof("something went wrong: %s", err.Error())
 		return e.NoContent(http.StatusInternalServerError)
 	}
+
 	if v == nil {
 		return e.NoContent(http.StatusNotFound)
 	}
-
 	return e.JSON(http.StatusOK, v)
 }
 

@@ -21,6 +21,10 @@ func (s *storage) GetAll(ctx context.Context) ([]metric.Metrics, error) {
 }
 
 func (s *storage) GetValue(ctx context.Context, mtype string, mname string) (*metric.Metrics, error) {
+	if mtype != metric.CounterMetric && mtype != metric.GaugeMetric {
+		return nil, ErrWrongMetricType
+	}
+
 	return s.repo.GetValue(ctx, mtype, mname)
 }
 
