@@ -71,9 +71,19 @@ func (c *StorageController) updateHandler(e echo.Context) error {
 	}
 
 	mtrc, err := metric.NewMetrics(e.Param("mname"), e.Param("mtype"), val)
-	if err != nil {
-		return err
+	if err == metric.ErrWrongMetricName {
+		c.l.Info(err.Error())
+		return e.NoContent(http.StatusNotFound)
 	}
+	if err == metric.ErrWrongMetricType || err == metric.ErrWrongMetricValue {
+		c.l.Info(err.Error())
+		return e.NoContent(http.StatusBadRequest)
+	}
+	if err != nil {
+		c.l.Infof("something went wrong: %s", err.Error())
+		return e.NoContent(http.StatusInternalServerError)
+	}
+
 	err = c.storage.Update(e.Request().Context(), mtrc)
 	if err == metric.ErrWrongMetricName {
 		c.l.Info(err.Error())
