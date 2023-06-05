@@ -45,14 +45,18 @@ func NewMetrics(mname, mtype string, value interface{}) (*Metrics, error) {
 			Delta: &v,
 		}, nil
 	case GaugeMetric:
-		v, ok := value.(float64)
+		vf, ok := value.(float64)
 		if !ok {
-			return nil, ErrWrongMetricValue
+			vi, ok := value.(int64)
+			if !ok {
+				return nil, ErrWrongMetricValue
+			}
+			vf = float64(vi)
 		}
 		return &Metrics{
 			ID:    mname,
 			MType: GaugeMetric,
-			Value: &v,
+			Value: &vf,
 		}, nil
 	case "":
 		switch v := value.(type) {
