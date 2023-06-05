@@ -85,6 +85,16 @@ func (s *memStorage) Update(ctx context.Context, mtrc *metric.Metrics) (err erro
 	return nil
 }
 
+func (s *memStorage) UpdateMany(ctx context.Context, mtrcs []metric.Metrics) error {
+	for _, mtrc := range mtrcs {
+		err := s.Update(ctx, &mtrc)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (s *memStorage) save() error {
 	if s.fileStoragePath != "" {
 		file, err := os.OpenFile(s.fileStoragePath, os.O_WRONLY|os.O_CREATE, 0666)

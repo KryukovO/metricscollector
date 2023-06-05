@@ -21,8 +21,9 @@ import (
 var (
 	ErrStorageIsNil = errors.New("metrics storage is nil")
 	ErrClientIsNil  = errors.New("HTTP client is nil")
-	ErrMetricIsNil  = errors.New("metric is nil")
 )
+
+const BatchSize = 20 // ограничение количества метрик, отправляемых одним запросом
 
 func Run(c *config.Config, l *log.Logger) error {
 	lg := log.StandardLogger()
@@ -55,23 +56,32 @@ func Run(c *config.Config, l *log.Logger) error {
 		// отправляем метрики на сервер, если прошло reportInterval секунд с последней отправки
 		// после отправки сбрасываем текущие сохраненные значения метрик
 		if time.Since(lastReport) > time.Duration(c.ReportInterval)*time.Second {
+			mtrcs := make([]metric.Metrics, 0, BatchSize)
 			for mname, mval := range m {
-				mtrc, err := metric.NewMetrics(mname, mval)
+				mtrc, err := metric.NewMetrics(mname, "", mval)
 				if err != nil {
 					lg.Infof("error sending '%s' metric value: %s", mname, err.Error())
 					continue
 				}
+				mtrcs = append(mtrcs, *mtrc)
 
-				err = sendMetric(&client, c.ServerAddress, mtrc)
-				if err == ErrClientIsNil {
-					return err
-				}
-				if err != nil {
-					lg.Infof("error sending '%s' metric value: %s", mname, err.Error())
+				if len(mtrcs) == BatchSize {
+					err := sendMetrics(&client, c.ServerAddress, mtrcs)
+					if err != nil {
+						lg.Infof("error sending metric values: %s", err.Error())
+					} else {
+						lg.Infof("metrics sent: %d", len(mtrcs))
+					}
+					mtrcs = make([]metric.Metrics, 0, BatchSize)
 				}
 			}
+			err := sendMetrics(&client, c.ServerAddress, mtrcs)
+			if err != nil {
+				lg.Infof("error sending metric values: %s", err.Error())
+			} else {
+				lg.Infof("metrics sent: %d", len(mtrcs))
+			}
 
-			lg.Info("metrics sent")
 			lastReport = time.Now()
 			m = make(map[string]interface{})
 		}
@@ -136,17 +146,17 @@ func scanMetrics(m map[string]interface{}, rnd *rand.Rand) error {
 	return nil
 }
 
-func sendMetric(client *http.Client, sAddr string, mtrc *metric.Metrics) error {
+func sendMetrics(client *http.Client, sAddr string, mtrcs []metric.Metrics) error {
 	if client == nil {
 		return ErrClientIsNil
 	}
-	if mtrc == nil {
-		return ErrMetricIsNil
+	if len(mtrcs) == 0 {
+		return nil
 	}
 
-	url := fmt.Sprintf("http://%s/update/", sAddr)
+	url := fmt.Sprintf("http://%s/updates/", sAddr)
 
-	body, err := json.Marshal(mtrc)
+	body, err := json.Marshal(mtrcs)
 	if err != nil {
 		return err
 	}

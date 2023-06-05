@@ -139,6 +139,35 @@ func (s *pgStorage) Update(ctx context.Context, mtrc *metric.Metrics) error {
 	return err
 }
 
+func (s *pgStorage) UpdateMany(ctx context.Context, mtrcs []metric.Metrics) error {
+	ctx, cancel := context.WithTimeout(ctx, time.Duration(s.timeout)*time.Second)
+	defer cancel()
+
+	query := `
+		INSERT INTO metrics(id, mtype, delta, value) VALUES($1, $2, $3, $4)
+		ON CONFLICT (id, mtype) DO UPDATE SET delta = $3, value = $4`
+
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	stmt, err := tx.PrepareContext(ctx, query)
+	if err != nil {
+		return err
+	}
+
+	for _, mtrc := range mtrcs {
+		_, err := stmt.ExecContext(ctx, mtrc.ID, mtrc.MType, mtrc.Delta, mtrc.Value)
+		if err != nil {
+			return err
+		}
+	}
+
+	return tx.Commit()
+}
+
 func (s *pgStorage) Ping() error {
 	return s.db.Ping()
 }

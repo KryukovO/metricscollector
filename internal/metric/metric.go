@@ -1,13 +1,19 @@
 package metric
 
-import "errors"
+import (
+	"errors"
+)
 
 const (
 	GaugeMetric   = "gauge"
 	CounterMetric = "counter"
 )
 
-var ErrWrongMetricValue = errors.New("wrong metric value")
+var (
+	ErrWrongMetricType  = errors.New("wrong metric type")
+	ErrWrongMetricName  = errors.New("wrong metric name")
+	ErrWrongMetricValue = errors.New("wrong metric value")
+)
 
 type Metrics struct {
 	ID    string   `json:"id"`              // имя метрики
@@ -16,21 +22,77 @@ type Metrics struct {
 	Value *float64 `json:"value,omitempty"` // значение метрики в случае передачи gauge
 }
 
-func NewMetrics(mname string, val interface{}) (*Metrics, error) {
-	switch v := val.(type) {
-	case int64:
+// Создает структуру метрики.
+//
+// Если параметр mtype не заполнен, тип метрики определяется по переданному значению value.
+func NewMetrics(mname, mtype string, value interface{}) (*Metrics, error) {
+	if mname == "" {
+		return nil, ErrWrongMetricName
+	}
+	if value == nil {
+		return nil, ErrWrongMetricValue
+	}
+
+	switch mtype {
+	case CounterMetric:
+		v, ok := value.(int64)
+		if !ok {
+			return nil, ErrWrongMetricValue
+		}
 		return &Metrics{
 			ID:    mname,
 			MType: CounterMetric,
 			Delta: &v,
 		}, nil
-	case float64:
+	case GaugeMetric:
+		v, ok := value.(float64)
+		if !ok {
+			return nil, ErrWrongMetricValue
+		}
 		return &Metrics{
 			ID:    mname,
 			MType: GaugeMetric,
 			Value: &v,
 		}, nil
+	case "":
+		switch v := value.(type) {
+		case int64:
+			return &Metrics{
+				ID:    mname,
+				MType: CounterMetric,
+				Delta: &v,
+			}, nil
+		case float64:
+			return &Metrics{
+				ID:    mname,
+				MType: GaugeMetric,
+				Value: &v,
+			}, nil
+		default:
+			return nil, ErrWrongMetricValue
+		}
 	default:
-		return nil, ErrWrongMetricValue
+		return nil, ErrWrongMetricType
 	}
+}
+
+func (mtrc *Metrics) Validate() error {
+	if mtrc.ID == "" {
+		return ErrWrongMetricName
+	}
+
+	switch mtrc.MType {
+	case CounterMetric:
+		if mtrc.Delta == nil {
+			return ErrWrongMetricValue
+		}
+	case GaugeMetric:
+		if mtrc.Value == nil {
+			return ErrWrongMetricValue
+		}
+	default:
+		return ErrWrongMetricType
+	}
+
+	return nil
 }
