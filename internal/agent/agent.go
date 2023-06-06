@@ -40,9 +40,12 @@ func Run(c *config.Config, l *log.Logger) error {
 		//TODO: timeout?
 	}
 
-	m := make(map[string]interface{})
-	var lastReport time.Time
-	var lastScan time.Time
+	var (
+		m          = make(map[string]interface{})
+		lastReport time.Time
+		lastScan   time.Time
+		err        error
+	)
 
 	for {
 		// сканируем метрики, если прошло pollInterval секунд с последнего сканирования
@@ -67,7 +70,13 @@ func Run(c *config.Config, l *log.Logger) error {
 				mtrcs = append(mtrcs, *mtrc)
 
 				if len(mtrcs) == BatchSize {
-					err := sendMetrics(&client, c.ServerAddress, mtrcs)
+					for t := 1; t <= 5; t += 2 {
+						err = sendMetrics(&client, c.ServerAddress, mtrcs)
+						if err == nil || !errors.Is(err, syscall.ECONNREFUSED) {
+							break
+						}
+						time.Sleep(time.Duration(t) * time.Second)
+					}
 					if err != nil {
 						lg.Infof("error sending metric values: %s", err.Error())
 					} else {
@@ -77,7 +86,13 @@ func Run(c *config.Config, l *log.Logger) error {
 				}
 			}
 			if len(mtrcs) > 0 {
-				err := sendMetrics(&client, c.ServerAddress, mtrcs)
+				for t := 1; t <= 5; t += 2 {
+					err = sendMetrics(&client, c.ServerAddress, mtrcs)
+					if err == nil || !errors.Is(err, syscall.ECONNREFUSED) {
+						break
+					}
+					time.Sleep(time.Duration(t) * time.Second)
+				}
 				if err != nil {
 					lg.Infof("error sending metric values: %s", err.Error())
 				} else {
@@ -176,14 +191,7 @@ func sendMetrics(client *http.Client, sAddr string, mtrcs []metric.Metrics) erro
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Set("Content-Encoding", "gzip")
 
-	var resp *http.Response
-	for t := 1; t <= 5; t += 2 {
-		resp, err = client.Do(req)
-		if err == nil || !errors.Is(err, syscall.ECONNREFUSED) {
-			break
-		}
-		time.Sleep(time.Duration(t) * time.Second)
-	}
+	resp, err := client.Do(req)
 	if err != nil {
 		return err
 	}
