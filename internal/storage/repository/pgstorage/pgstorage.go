@@ -3,9 +3,12 @@ package pgstorage
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"time"
 
 	"github.com/KryukovO/metricscollector/internal/metric"
+	"github.com/jackc/pgerrcode"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 type pgStorage struct {
@@ -62,7 +65,19 @@ func (s *pgStorage) GetAll(ctx context.Context) ([]metric.Metrics, error) {
 			id, mtype, delta, value 
 		FROM metrics`
 
-	rows, err := s.db.QueryContext(ctx, query)
+	var (
+		rows *sql.Rows
+		err  error
+	)
+
+	for t := 1; t <= 5; t += 2 {
+		rows, err = s.db.QueryContext(ctx, query)
+		var pgErr *pgconn.PgError
+		if err == nil || !errors.As(err, &pgErr) || !pgerrcode.IsConnectionException(pgErr.Code) {
+			break
+		}
+		time.Sleep(time.Duration(t) * time.Second)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -110,9 +125,17 @@ func (s *pgStorage) GetValue(ctx context.Context, mtype string, mname string) (*
 		delta sql.NullInt64
 		value sql.NullFloat64
 		mtrc  metric.Metrics
+		err   error
 	)
 
-	err := s.db.QueryRowContext(ctx, query, mname, mtype).Scan(&mtrc.ID, &mtrc.MType, &delta, &value)
+	for t := 1; t <= 5; t += 2 {
+		err = s.db.QueryRowContext(ctx, query, mname, mtype).Scan(&mtrc.ID, &mtrc.MType, &delta, &value)
+		var pgErr *pgconn.PgError
+		if err == nil || !errors.As(err, &pgErr) || !pgerrcode.IsConnectionException(pgErr.Code) {
+			break
+		}
+		time.Sleep(time.Duration(t) * time.Second)
+	}
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
@@ -129,7 +152,7 @@ func (s *pgStorage) GetValue(ctx context.Context, mtype string, mname string) (*
 	return &mtrc, nil
 }
 
-func (s *pgStorage) Update(ctx context.Context, mtrc *metric.Metrics) error {
+func (s *pgStorage) Update(ctx context.Context, mtrc *metric.Metrics) (err error) {
 	ctx, cancel := context.WithTimeout(ctx, time.Duration(s.timeout)*time.Second)
 	defer cancel()
 
@@ -137,9 +160,16 @@ func (s *pgStorage) Update(ctx context.Context, mtrc *metric.Metrics) error {
 		INSERT INTO metrics(id, mtype, delta, value) VALUES($1, $2, $3, $4)
 		ON CONFLICT (id, mtype) DO UPDATE SET delta = metrics.delta + $3, value = $4`
 
-	_, err := s.db.ExecContext(ctx, query, mtrc.ID, mtrc.MType, mtrc.Delta, mtrc.Value)
+	for t := 1; t <= 5; t += 2 {
+		_, err = s.db.ExecContext(ctx, query, mtrc.ID, mtrc.MType, mtrc.Delta, mtrc.Value)
+		var pgErr *pgconn.PgError
+		if err == nil || !errors.As(err, &pgErr) || !pgerrcode.IsConnectionException(pgErr.Code) {
+			break
+		}
+		time.Sleep(time.Duration(t) * time.Second)
+	}
 
-	return err
+	return
 }
 
 func (s *pgStorage) UpdateMany(ctx context.Context, mtrcs []metric.Metrics) error {
@@ -150,19 +180,46 @@ func (s *pgStorage) UpdateMany(ctx context.Context, mtrcs []metric.Metrics) erro
 		INSERT INTO metrics(id, mtype, delta, value) VALUES($1, $2, $3, $4)
 		ON CONFLICT (id, mtype) DO UPDATE SET delta = metrics.delta + $3, value = $4`
 
-	tx, err := s.db.BeginTx(ctx, nil)
+	var (
+		tx   *sql.Tx
+		stmt *sql.Stmt
+		err  error
+	)
+
+	for t := 1; t <= 5; t += 2 {
+		tx, err = s.db.BeginTx(ctx, nil)
+		var pgErr *pgconn.PgError
+		if err == nil || !errors.As(err, &pgErr) || !pgerrcode.IsConnectionException(pgErr.Code) {
+			break
+		}
+		time.Sleep(time.Duration(t) * time.Second)
+	}
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
 
-	stmt, err := tx.PrepareContext(ctx, query)
+	for t := 1; t <= 5; t += 2 {
+		stmt, err = tx.PrepareContext(ctx, query)
+		var pgErr *pgconn.PgError
+		if err == nil || !errors.As(err, &pgErr) || !pgerrcode.IsConnectionException(pgErr.Code) {
+			break
+		}
+		time.Sleep(time.Duration(t) * time.Second)
+	}
 	if err != nil {
 		return err
 	}
 
 	for _, mtrc := range mtrcs {
-		_, err := stmt.ExecContext(ctx, mtrc.ID, mtrc.MType, mtrc.Delta, mtrc.Value)
+		for t := 1; t <= 5; t += 2 {
+			_, err := stmt.ExecContext(ctx, mtrc.ID, mtrc.MType, mtrc.Delta, mtrc.Value)
+			var pgErr *pgconn.PgError
+			if err == nil || !errors.As(err, &pgErr) || !pgerrcode.IsConnectionException(pgErr.Code) {
+				break
+			}
+			time.Sleep(time.Duration(t) * time.Second)
+		}
 		if err != nil {
 			return err
 		}
@@ -171,8 +228,16 @@ func (s *pgStorage) UpdateMany(ctx context.Context, mtrcs []metric.Metrics) erro
 	return tx.Commit()
 }
 
-func (s *pgStorage) Ping() error {
-	return s.db.Ping()
+func (s *pgStorage) Ping() (err error) {
+	for t := 1; t <= 5; t += 2 {
+		err = s.db.Ping()
+		var pgErr *pgconn.PgError
+		if err == nil || !errors.As(err, &pgErr) || !pgerrcode.IsConnectionException(pgErr.Code) {
+			break
+		}
+		time.Sleep(time.Duration(t) * time.Second)
+	}
+	return
 }
 
 func (s *pgStorage) Close() error {

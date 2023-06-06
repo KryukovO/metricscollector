@@ -3,7 +3,9 @@ package memstorage
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
+	"syscall"
 	"time"
 
 	"github.com/KryukovO/metricscollector/internal/metric"
@@ -96,8 +98,19 @@ func (s *memStorage) UpdateMany(ctx context.Context, mtrcs []metric.Metrics) err
 }
 
 func (s *memStorage) save() error {
+	var (
+		file *os.File
+		err  error
+	)
+
 	if s.fileStoragePath != "" {
-		file, err := os.OpenFile(s.fileStoragePath, os.O_WRONLY|os.O_CREATE, 0666)
+		for t := 1; t <= 5; t += 2 {
+			file, err = os.OpenFile(s.fileStoragePath, os.O_WRONLY|os.O_CREATE, 0666)
+			if err == nil || !errors.Is(err, syscall.EBUSY) {
+				break
+			}
+			time.Sleep(time.Duration(t) * time.Second)
+		}
 		if err != nil {
 			return err
 		}
@@ -109,8 +122,18 @@ func (s *memStorage) save() error {
 }
 
 func (s *memStorage) load() error {
+	var (
+		file *os.File
+		err  error
+	)
 	if s.fileStoragePath != "" {
-		file, err := os.OpenFile(s.fileStoragePath, os.O_RDONLY, 0666)
+		for t := 1; t <= 5; t += 2 {
+			file, err = os.OpenFile(s.fileStoragePath, os.O_RDONLY, 0666)
+			if err == nil || !errors.Is(err, syscall.EBUSY) {
+				break
+			}
+			time.Sleep(time.Duration(t) * time.Second)
+		}
 		if err != nil {
 			if os.IsNotExist(err) {
 				return nil

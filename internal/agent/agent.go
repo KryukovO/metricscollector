@@ -10,6 +10,7 @@ import (
 	"math/rand"
 	"net/http"
 	"runtime"
+	"syscall"
 	"time"
 
 	"github.com/KryukovO/metricscollector/internal/agent/config"
@@ -175,7 +176,14 @@ func sendMetrics(client *http.Client, sAddr string, mtrcs []metric.Metrics) erro
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Set("Content-Encoding", "gzip")
 
-	resp, err := client.Do(req)
+	var resp *http.Response
+	for t := 1; t <= 5; t += 2 {
+		resp, err = client.Do(req)
+		if err == nil || !errors.Is(err, syscall.ECONNREFUSED) {
+			break
+		}
+		time.Sleep(time.Duration(t) * time.Second)
+	}
 	if err != nil {
 		return err
 	}

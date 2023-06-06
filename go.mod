@@ -4,6 +4,7 @@ go 1.19
 
 require (
 	github.com/caarlos0/env v3.5.0+incompatible
+	github.com/jackc/pgerrcode v0.0.0-20220416144525-469b46aa5efa
 	github.com/jackc/pgx/v5 v5.3.1
 	github.com/labstack/echo v3.3.10+incompatible
 	github.com/sirupsen/logrus v1.9.2
