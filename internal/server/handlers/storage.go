@@ -196,10 +196,6 @@ func (c *StorageController) getValueJSONHandler(e echo.Context) error {
 		return e.NoContent(http.StatusInternalServerError)
 	}
 
-	if len(body) == 0 {
-		return e.NoContent(http.StatusNotFound)
-	}
-
 	var mtrc metric.Metrics
 	err = json.Unmarshal(body, &mtrc)
 	if err != nil {

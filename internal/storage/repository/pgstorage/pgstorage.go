@@ -114,6 +114,9 @@ func (s *pgStorage) GetValue(ctx context.Context, mtype string, mname string) (*
 
 	err := s.db.QueryRowContext(ctx, query, mname, mtype).Scan(&mtrc.ID, &mtrc.MType, &delta, &value)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
 		return nil, err
 	}
 
@@ -132,7 +135,7 @@ func (s *pgStorage) Update(ctx context.Context, mtrc *metric.Metrics) error {
 
 	query := `
 		INSERT INTO metrics(id, mtype, delta, value) VALUES($1, $2, $3, $4)
-		ON CONFLICT (id, mtype) DO UPDATE SET delta = $3, value = $4`
+		ON CONFLICT (id, mtype) DO UPDATE SET delta = metrics.delta + $3, value = $4`
 
 	_, err := s.db.ExecContext(ctx, query, mtrc.ID, mtrc.MType, mtrc.Delta, mtrc.Value)
 
@@ -145,7 +148,7 @@ func (s *pgStorage) UpdateMany(ctx context.Context, mtrcs []metric.Metrics) erro
 
 	query := `
 		INSERT INTO metrics(id, mtype, delta, value) VALUES($1, $2, $3, $4)
-		ON CONFLICT (id, mtype) DO UPDATE SET delta = $3, value = $4`
+		ON CONFLICT (id, mtype) DO UPDATE SET delta = metrics.delta + $3, value = $4`
 
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
