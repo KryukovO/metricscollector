@@ -213,7 +213,7 @@ func (s *pgStorage) UpdateMany(ctx context.Context, mtrcs []metric.Metrics) erro
 
 	for _, mtrc := range mtrcs {
 		for t := 1; t <= 5; t += 2 {
-			_, err := stmt.ExecContext(ctx, mtrc.ID, mtrc.MType, mtrc.Delta, mtrc.Value)
+			_, err = stmt.ExecContext(ctx, mtrc.ID, mtrc.MType, mtrc.Delta, mtrc.Value)
 			var pgErr *pgconn.PgError
 			if err == nil || !errors.As(err, &pgErr) || !pgerrcode.IsConnectionException(pgErr.Code) {
 				break
