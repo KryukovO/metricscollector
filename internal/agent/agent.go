@@ -75,11 +75,13 @@ func Run(c *config.Config, l *log.Logger) error {
 					mtrcs = make([]metric.Metrics, 0, BatchSize)
 				}
 			}
-			err := sendMetrics(&client, c.ServerAddress, mtrcs)
-			if err != nil {
-				lg.Infof("error sending metric values: %s", err.Error())
-			} else {
-				lg.Infof("metrics sent: %d", len(mtrcs))
+			if len(mtrcs) > 0 {
+				err := sendMetrics(&client, c.ServerAddress, mtrcs)
+				if err != nil {
+					lg.Infof("error sending metric values: %s", err.Error())
+				} else {
+					lg.Infof("metrics sent: %d", len(mtrcs))
+				}
 			}
 
 			lastReport = time.Now()
@@ -149,9 +151,6 @@ func scanMetrics(m map[string]interface{}, rnd *rand.Rand) error {
 func sendMetrics(client *http.Client, sAddr string, mtrcs []metric.Metrics) error {
 	if client == nil {
 		return ErrClientIsNil
-	}
-	if len(mtrcs) == 0 {
-		return nil
 	}
 
 	url := fmt.Sprintf("http://%s/updates/", sAddr)
