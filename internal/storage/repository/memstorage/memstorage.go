@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"os"
+	"sync"
 	"syscall"
 	"time"
 
@@ -18,8 +19,8 @@ type memStorage struct {
 	fileStoragePath string        // путь до файла, в который сохраняются метрики
 	syncSave        bool          // признак синхронной записи в файл
 	closeSaving     chan struct{} // канал, принимающий сообщение о необходимости прекратить сохранения в файл
+	mtx             sync.RWMutex
 	l               *log.Logger
-	// TODO: RWMutex для защиты доступа к данным
 }
 
 func NewMemStorage(file string, restore bool, storeInterval time.Duration, l *log.Logger) (*memStorage, error) {
@@ -65,29 +66,7 @@ func NewMemStorage(file string, restore bool, storeInterval time.Duration, l *lo
 	return s, nil
 }
 
-func (s *memStorage) GetAll(ctx context.Context) ([]metric.Metrics, error) {
-	return s.storage, nil
-}
-
-func (s *memStorage) GetValue(ctx context.Context, mtype string, mname string) (*metric.Metrics, error) {
-	for _, mtrc := range s.storage {
-		if mtrc.MType == mtype && mtrc.ID == mname {
-			return &mtrc, nil
-		}
-	}
-	return nil, nil
-}
-
-func (s *memStorage) Update(ctx context.Context, mtrc *metric.Metrics) error {
-	defer func() {
-		if s.syncSave {
-			err := s.save()
-			if err != nil {
-				s.l.Infof("error when saving metrics to the file: %s", err)
-			}
-		}
-	}()
-
+func (s *memStorage) update(mtrc *metric.Metrics) {
 	for i := range s.storage {
 		if mtrc.MType == s.storage[i].MType && mtrc.ID == s.storage[i].ID {
 			if mtrc.Delta != nil {
@@ -95,23 +74,11 @@ func (s *memStorage) Update(ctx context.Context, mtrc *metric.Metrics) error {
 				mtrc.Delta = s.storage[i].Delta
 			}
 			s.storage[i].Value = mtrc.Value
-			return nil
+			return
 		}
 	}
 
 	s.storage = append(s.storage, *mtrc)
-
-	return nil
-}
-
-func (s *memStorage) UpdateMany(ctx context.Context, mtrcs []metric.Metrics) error {
-	for _, mtrc := range mtrcs {
-		err := s.Update(ctx, &mtrc)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 func (s *memStorage) save() error {
@@ -119,6 +86,9 @@ func (s *memStorage) save() error {
 		file *os.File
 		err  error
 	)
+
+	s.mtx.RLock()
+	defer s.mtx.RUnlock()
 
 	if s.fileStoragePath != "" {
 		for t := 1; t <= 5; t += 2 {
@@ -143,6 +113,10 @@ func (s *memStorage) load() error {
 		file *os.File
 		err  error
 	)
+
+	s.mtx.Lock()
+	defer s.mtx.Unlock()
+
 	if s.fileStoragePath != "" {
 		for t := 1; t <= 5; t += 2 {
 			file, err = os.OpenFile(s.fileStoragePath, os.O_RDONLY, 0666)
@@ -164,11 +138,59 @@ func (s *memStorage) load() error {
 	return nil
 }
 
+func (s *memStorage) GetAll(ctx context.Context) ([]metric.Metrics, error) {
+	s.mtx.RLock()
+	defer s.mtx.RUnlock()
+	data := make([]metric.Metrics, len(s.storage))
+	copy(data, s.storage)
+	return data, nil
+}
+
+func (s *memStorage) GetValue(ctx context.Context, mtype string, mname string) (*metric.Metrics, error) {
+	s.mtx.RLock()
+	defer s.mtx.RUnlock()
+	for _, mtrc := range s.storage {
+		if mtrc.MType == mtype && mtrc.ID == mname {
+			return &mtrc, nil
+		}
+	}
+	return nil, nil
+}
+
+func (s *memStorage) Update(ctx context.Context, mtrc *metric.Metrics) error {
+	defer func() {
+		if s.syncSave {
+			err := s.save()
+			if err != nil {
+				s.l.Infof("error when saving metrics to the file: %s", err)
+			}
+		}
+	}()
+
+	s.mtx.Lock()
+	defer s.mtx.Unlock()
+	s.update(mtrc)
+
+	return nil
+}
+
+func (s *memStorage) UpdateMany(ctx context.Context, mtrcs []metric.Metrics) error {
+	s.mtx.Lock()
+	defer s.mtx.Unlock()
+	for _, mtrc := range mtrcs {
+		s.update(&mtrc)
+	}
+
+	return nil
+}
+
 func (s *memStorage) Ping() error {
 	return nil
 }
 
 func (s *memStorage) Close() error {
+	s.mtx.Lock()
+	defer s.mtx.Unlock()
 	if s.closeSaving != nil {
 		s.closeSaving <- struct{}{}
 		s.closeSaving = nil

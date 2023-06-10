@@ -158,15 +158,20 @@ func (s *pgStorage) Update(ctx context.Context, mtrc *metric.Metrics) (err error
 
 	query := `
 		INSERT INTO metrics(id, mtype, delta, value) VALUES($1, $2, $3, $4)
-		ON CONFLICT (id, mtype) DO UPDATE SET delta = metrics.delta + $3, value = $4`
+		ON CONFLICT (id, mtype) DO UPDATE SET delta = metrics.delta + $3, value = $4
+		RETURNING delta`
 
+	var delta sql.NullInt64
 	for t := 1; t <= 5; t += 2 {
-		_, err = s.db.ExecContext(ctx, query, mtrc.ID, mtrc.MType, mtrc.Delta, mtrc.Value)
+		err = s.db.QueryRowContext(ctx, query, mtrc.ID, mtrc.MType, mtrc.Delta, mtrc.Value).Scan(&delta)
 		var pgErr *pgconn.PgError
 		if err == nil || !errors.As(err, &pgErr) || !pgerrcode.IsConnectionException(pgErr.Code) {
 			break
 		}
 		time.Sleep(time.Duration(t) * time.Second)
+	}
+	if delta.Valid {
+		*mtrc.Delta = delta.Int64
 	}
 
 	return
