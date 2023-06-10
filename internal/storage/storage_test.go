@@ -270,3 +270,120 @@ func TestUpdate(t *testing.T) {
 		})
 	}
 }
+
+func TestUpdateMany(t *testing.T) {
+	var (
+		counterVal int64 = 100
+		gaugeVal         = 12345.67
+	)
+
+	tests := []struct {
+		name    string
+		arg     []metric.Metrics
+		wantErr bool
+	}{
+		{
+			name: "Correct update",
+			arg: []metric.Metrics{
+				{
+					ID:    "RandomValue",
+					MType: metric.GaugeMetric,
+					Value: &gaugeVal,
+				},
+				{
+					ID:    "PollCount",
+					MType: metric.CounterMetric,
+					Delta: &counterVal,
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "Incorrect gauge value #1",
+			arg: []metric.Metrics{
+				{
+					ID:    "RandomValue",
+					MType: metric.GaugeMetric,
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "Incorrect gauge value #2",
+			arg: []metric.Metrics{
+				{
+					ID:    "RandomValue",
+					MType: metric.GaugeMetric,
+					Delta: &counterVal,
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "Incorrect counter value #1",
+			arg: []metric.Metrics{
+				{
+					ID:    "PollCount",
+					MType: metric.CounterMetric,
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "Incorrect counter value #2",
+			arg: []metric.Metrics{
+				{
+					ID:    "PollCount",
+					MType: metric.CounterMetric,
+					Value: &gaugeVal,
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "Incorrect metric type #1",
+			arg: []metric.Metrics{
+				{
+					ID:    "PollCount",
+					MType: "metric",
+					Delta: &counterVal,
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "Incorrect metric type #2",
+			arg: []metric.Metrics{
+				{
+					ID:    "RandomValue",
+					MType: "metric",
+					Value: &gaugeVal,
+				},
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, test := range tests {
+		repo, _, err := newTestStorageRepo(true)
+		require.NoError(t, err)
+		s := NewStorage(repo)
+
+		t.Run(test.name, func(t *testing.T) {
+			err := s.UpdateMany(context.Background(), test.arg)
+
+			if test.wantErr {
+				assert.Error(t, err)
+				stor, err := repo.GetAll(context.Background())
+				require.NoError(t, err)
+				assert.Equal(t, true, len(stor) == 0, "The update returned an error, but the value was saved")
+			} else {
+				assert.NoError(t, err)
+				stor, err := repo.GetAll(context.Background())
+				require.NoError(t, err)
+				require.Equal(t, true, len(stor) == len(test.arg), "The update was successful, but the value was not saved")
+				assert.EqualValues(t, test.arg, stor, "Saved value '%+v' is not equal to expected '%+v'", stor, test.arg)
+			}
+		})
+	}
+}

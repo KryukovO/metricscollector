@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -176,6 +177,197 @@ func TestUpdateHandler(t *testing.T) {
 	}
 }
 
+func TestUpdateJSONHandler(t *testing.T) {
+	url := "/update/"
+	type want struct {
+		status      int
+		contentType string
+	}
+	tests := []struct {
+		name string
+		body []byte
+		want want
+	}{
+		{
+			name: "Correct gauge test #1",
+			body: []byte(`{"id":"Mallocs", "type":"gauge", "value":100.0001}`),
+			want: want{
+				status:      http.StatusOK,
+				contentType: "application/json; charset=UTF-8",
+			},
+		},
+		{
+			name: "Correct gauge test #2",
+			body: []byte(`{"id":"Mallocs", "type":"gauge", "value":100}`),
+			want: want{
+				status:      http.StatusOK,
+				contentType: "application/json; charset=UTF-8",
+			},
+		},
+		{
+			name: "Correct counter test",
+			body: []byte(`{"id":"PollCount", "type":"counter", "delta":1}`),
+			want: want{
+				status:      http.StatusOK,
+				contentType: "application/json; charset=UTF-8",
+			},
+		},
+		{
+			name: "Incorrect gauge value",
+			body: []byte(`{"id":"Mallocs", "type":"gauge", "value":"value"}`),
+			want: want{
+				status:      http.StatusBadRequest,
+				contentType: "",
+			},
+		},
+		{
+			name: "Incorrect counter value #1",
+			body: []byte(`{"id":"PollCount", "type":"counter", "delta":100.0001}`),
+			want: want{
+				status:      http.StatusBadRequest,
+				contentType: "",
+			},
+		},
+		{
+			name: "Incorrect counter value #2",
+			body: []byte(`{"id":"PollCount", "type":"counter", "delta":"value"}`),
+			want: want{
+				status:      http.StatusBadRequest,
+				contentType: "",
+			},
+		},
+		{
+			name: "Incorrect metric type",
+			body: []byte(`{"id":"PollCount", "type":"type", "delta":1}`),
+			want: want{
+				status:      http.StatusBadRequest,
+				contentType: "",
+			},
+		},
+		{
+			name: "Empty metric type",
+			body: []byte(`{"id":"PollCount", "type":"", "delta":1}`),
+			want: want{
+				status:      http.StatusBadRequest,
+				contentType: "",
+			},
+		},
+		{
+			name: "Empty metric name",
+			body: []byte(`{"id":"", "type":"counter", "delta":1}`),
+			want: want{
+				status:      http.StatusNotFound,
+				contentType: "",
+			},
+		},
+		{
+			name: "Empty metric value",
+			body: []byte(`{"id":"PollCount", "type":"counter"}`),
+			want: want{
+				status:      http.StatusBadRequest,
+				contentType: "",
+			},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			e := echo.New()
+			req := httptest.NewRequest(http.MethodPost, url, bytes.NewReader(test.body))
+			rec := httptest.NewRecorder()
+
+			c := e.NewContext(req, rec)
+			c.SetPath(url)
+
+			repo, _, err := newTestStorageRepo(true)
+			require.NoError(t, err)
+			s := StorageController{
+				storage: storage.NewStorage(repo),
+				l:       logrus.StandardLogger(),
+			}
+			s.updateJSONHandler(c)
+
+			res := rec.Result()
+			defer res.Body.Close()
+
+			assert.Equal(t, test.want.status, res.StatusCode)
+			assert.Equal(t, test.want.contentType, res.Header.Get("Content-Type"))
+		})
+	}
+}
+
+func TestUpdatesHandler(t *testing.T) {
+	url := "/updates/"
+	tests := []struct {
+		name   string
+		body   []byte
+		status int
+	}{
+		{
+			name:   "Correct body",
+			body:   []byte(`[{"id":"Mallocs", "type":"gauge", "value":100.0001}, {"id":"PollCount", "type":"counter", "delta":1}]`),
+			status: http.StatusOK,
+		},
+		{
+			name:   "Incorrect gauge value",
+			body:   []byte(`[{"id":"Mallocs", "type":"gauge", "value":"value"}]`),
+			status: http.StatusBadRequest,
+		},
+		{
+			name:   "Incorrect counter value #1",
+			body:   []byte(`[{"id":"PollCount", "type":"counter", "delta":100.0001}]`),
+			status: http.StatusBadRequest,
+		},
+		{
+			name:   "Incorrect counter value #2",
+			body:   []byte(`[{"id":"PollCount", "type":"counter", "delta":"value"}]`),
+			status: http.StatusBadRequest,
+		},
+		{
+			name:   "Incorrect metric type",
+			body:   []byte(`[{"id":"PollCount", "type":"type", "delta":1}]`),
+			status: http.StatusBadRequest,
+		},
+		{
+			name:   "Empty metric type",
+			body:   []byte(`[{"id":"PollCount", "type":"", "delta":1}]`),
+			status: http.StatusBadRequest,
+		},
+		{
+			name:   "Empty metric name",
+			body:   []byte(`[{"id":"", "type":"counter", "delta":1}]`),
+			status: http.StatusNotFound,
+		},
+		{
+			name:   "Empty metric value",
+			body:   []byte(`[{"id":"PollCount", "type":"counter"}]`),
+			status: http.StatusBadRequest,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			e := echo.New()
+			req := httptest.NewRequest(http.MethodPost, url, bytes.NewReader(test.body))
+			rec := httptest.NewRecorder()
+
+			c := e.NewContext(req, rec)
+			c.SetPath(url)
+
+			repo, _, err := newTestStorageRepo(true)
+			require.NoError(t, err)
+			s := StorageController{
+				storage: storage.NewStorage(repo),
+				l:       logrus.StandardLogger(),
+			}
+			s.updatesHandler(c)
+
+			res := rec.Result()
+			defer res.Body.Close()
+
+			assert.Equal(t, test.status, res.StatusCode)
+		})
+	}
+}
+
 func TestGetValueHandler(t *testing.T) {
 	type args struct {
 		url    string
@@ -244,6 +436,68 @@ func TestGetValueHandler(t *testing.T) {
 				l:       logrus.StandardLogger(),
 			}
 			s.getValueHandler(c)
+
+			res := rec.Result()
+			defer res.Body.Close()
+
+			assert.Equal(t, test.want.status, res.StatusCode)
+			assert.Equal(t, test.want.contentType, res.Header.Get("Content-Type"))
+		})
+	}
+}
+
+func TestGetValueJSONHandler(t *testing.T) {
+	url := "/value/"
+	type want struct {
+		status      int
+		contentType string
+	}
+	tests := []struct {
+		name string
+		body []byte
+		want want
+	}{
+		{
+			name: "Correct body",
+			body: []byte(`{"id":"PollCount", "type":"counter"}`),
+			want: want{
+				status:      http.StatusOK,
+				contentType: "application/json; charset=UTF-8",
+			},
+		},
+		{
+			name: "Metric with name does not exists",
+			body: []byte(`{"id":"Count", "type":"counter"}`),
+			want: want{
+				status:      http.StatusNotFound,
+				contentType: "",
+			},
+		},
+		{
+			name: "Metric type does not exists",
+			body: []byte(`{"id":"PollCount", "type":"count"}`),
+			want: want{
+				status:      http.StatusNotFound,
+				contentType: "",
+			},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			e := echo.New()
+			req := httptest.NewRequest(http.MethodPost, url, bytes.NewReader(test.body))
+			rec := httptest.NewRecorder()
+
+			c := e.NewContext(req, rec)
+			c.SetPath(url)
+
+			repo, _, err := newTestStorageRepo(false)
+			require.NoError(t, err)
+			s := StorageController{
+				storage: storage.NewStorage(repo),
+				l:       logrus.StandardLogger(),
+			}
+			s.getValueJSONHandler(c)
 
 			res := rec.Result()
 			defer res.Body.Close()

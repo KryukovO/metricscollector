@@ -120,7 +120,12 @@ func (c *StorageController) updateJSONHandler(e echo.Context) error {
 
 	var mtrc metric.Metrics
 	err = json.Unmarshal(body, &mtrc)
+	var jsonErr *json.UnmarshalTypeError
 	if err != nil {
+		if errors.As(err, &jsonErr) {
+			c.l.Infof("something went wrong: %s", err.Error())
+			return e.NoContent(http.StatusBadRequest)
+		}
 		c.l.Infof("something went wrong: %s", err.Error())
 		return e.NoContent(http.StatusInternalServerError)
 	}
@@ -151,7 +156,12 @@ func (c *StorageController) updatesHandler(e echo.Context) error {
 
 	var mtrcs []metric.Metrics
 	err = json.Unmarshal(body, &mtrcs)
+	var jsonErr *json.UnmarshalTypeError
 	if err != nil {
+		if errors.As(err, &jsonErr) {
+			c.l.Infof("something went wrong: %s", err.Error())
+			return e.NoContent(http.StatusBadRequest)
+		}
 		c.l.Infof("something went wrong: %s", err.Error())
 		return e.NoContent(http.StatusInternalServerError)
 	}

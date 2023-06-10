@@ -24,7 +24,8 @@ type Metrics struct {
 
 // Создает структуру метрики.
 //
-// Если параметр mtype не заполнен, тип метрики определяется по переданному значению value.
+// Если параметр mtype не заполнен, тип метрики определяется по переданному значению value:
+// float64 => gauge; int64 => counter.
 func NewMetrics(mname, mtype string, value interface{}) (*Metrics, error) {
 	if mname == "" {
 		return nil, ErrWrongMetricName
