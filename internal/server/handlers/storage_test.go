@@ -39,7 +39,7 @@ func newTestStorageRepo(clear bool) (repo storage.StorageRepo, stor []metric.Met
 		},
 	}
 
-	repo, err = memstorage.NewMemStorage("", false, 0)
+	repo, err = memstorage.NewMemStorage("", false, 0, nil)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -167,7 +167,8 @@ func TestUpdateHandler(t *testing.T) {
 				storage: storage.NewStorage(repo),
 				l:       logrus.StandardLogger(),
 			}
-			s.updateHandler(c)
+			err = s.updateHandler(c)
+			require.NoError(t, err)
 
 			res := rec.Result()
 			defer res.Body.Close()
@@ -284,7 +285,8 @@ func TestUpdateJSONHandler(t *testing.T) {
 				storage: storage.NewStorage(repo),
 				l:       logrus.StandardLogger(),
 			}
-			s.updateJSONHandler(c)
+			err = s.updateJSONHandler(c)
+			require.NoError(t, err)
 
 			res := rec.Result()
 			defer res.Body.Close()
@@ -358,7 +360,8 @@ func TestUpdatesHandler(t *testing.T) {
 				storage: storage.NewStorage(repo),
 				l:       logrus.StandardLogger(),
 			}
-			s.updatesHandler(c)
+			err = s.updatesHandler(c)
+			require.NoError(t, err)
 
 			res := rec.Result()
 			defer res.Body.Close()
@@ -435,7 +438,8 @@ func TestGetValueHandler(t *testing.T) {
 				storage: storage.NewStorage(repo),
 				l:       logrus.StandardLogger(),
 			}
-			s.getValueHandler(c)
+			err = s.getValueHandler(c)
+			require.NoError(t, err)
 
 			res := rec.Result()
 			defer res.Body.Close()
@@ -497,7 +501,8 @@ func TestGetValueJSONHandler(t *testing.T) {
 				storage: storage.NewStorage(repo),
 				l:       logrus.StandardLogger(),
 			}
-			s.getValueJSONHandler(c)
+			err = s.getValueJSONHandler(c)
+			require.NoError(t, err)
 
 			res := rec.Result()
 			defer res.Body.Close()

@@ -27,7 +27,7 @@ func Run(c *config.Config, l *log.Logger) error {
 	if c.DSN != "" {
 		repo, err = pgstorage.NewPgStorage(c.DSN)
 	} else {
-		repo, err = memstorage.NewMemStorage(c.FileStoragePath, c.Restore, time.Duration(c.StoreInterval)*time.Second)
+		repo, err = memstorage.NewMemStorage(c.FileStoragePath, c.Restore, time.Duration(c.StoreInterval)*time.Second, lg)
 	}
 	if err != nil {
 		return err

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/KryukovO/metricscollector/internal/metric"
+	log "github.com/sirupsen/logrus"
 )
 
 type memStorage struct {
@@ -17,14 +18,21 @@ type memStorage struct {
 	fileStoragePath string        // путь до файла, в который сохраняются метрики
 	syncSave        bool          // признак синхронной записи в файл
 	closeSaving     chan struct{} // канал, принимающий сообщение о необходимости прекратить сохранения в файл
+	l               *log.Logger
 	// TODO: RWMutex для защиты доступа к данным
 }
 
-func NewMemStorage(file string, restore bool, storeInterval time.Duration) (*memStorage, error) {
+func NewMemStorage(file string, restore bool, storeInterval time.Duration, l *log.Logger) (*memStorage, error) {
+	lg := log.StandardLogger()
+	if l != nil {
+		lg = l
+	}
+
 	s := &memStorage{
 		storage:         make([]metric.Metrics, 0),
 		fileStoragePath: file,
 		syncSave:        storeInterval == 0,
+		l:               lg,
 	}
 	if restore {
 		err := s.load()
@@ -39,10 +47,16 @@ func NewMemStorage(file string, restore bool, storeInterval time.Duration) (*mem
 			for {
 				select {
 				case <-s.closeSaving:
-					s.save()
+					err := s.save()
+					if err != nil {
+						s.l.Infof("error when saving metrics to the file: %s", err)
+					}
 					return
 				case <-ticker.C:
-					s.save()
+					err := s.save()
+					if err != nil {
+						s.l.Infof("error when saving metrics to the file: %s", err)
+					}
 				}
 			}
 		}()
@@ -64,10 +78,13 @@ func (s *memStorage) GetValue(ctx context.Context, mtype string, mname string) (
 	return nil, nil
 }
 
-func (s *memStorage) Update(ctx context.Context, mtrc *metric.Metrics) (err error) {
+func (s *memStorage) Update(ctx context.Context, mtrc *metric.Metrics) error {
 	defer func() {
 		if s.syncSave {
-			err = s.save()
+			err := s.save()
+			if err != nil {
+				s.l.Infof("error when saving metrics to the file: %s", err)
+			}
 		}
 	}()
 

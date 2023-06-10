@@ -29,7 +29,7 @@ func newTestStorageRepo(clear bool) (repo StorageRepo, stor []metric.Metrics, er
 		},
 	}
 
-	repo, err = memstorage.NewMemStorage("", false, 0)
+	repo, err = memstorage.NewMemStorage("", false, 0, nil)
 	if err != nil {
 		return nil, nil, err
 	}

@@ -196,8 +196,11 @@ func sendMetrics(client *http.Client, sAddr string, mtrcs []metric.Metrics) erro
 		return err
 	}
 
-	io.Copy(io.Discard, resp.Body)
+	_, err = io.Copy(io.Discard, resp.Body)
 	defer resp.Body.Close()
+	if err != nil {
+		return err
+	}
 
 	if resp.StatusCode != http.StatusOK {
 		return errors.New(resp.Status)
