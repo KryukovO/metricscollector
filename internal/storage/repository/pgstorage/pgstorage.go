@@ -11,22 +11,26 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
-type pgStorage struct {
+type PgStorage struct {
 	db      *sql.DB
 	timeout int
 }
 
-func NewPgStorage(dsn string) (*pgStorage, error) {
+func NewPgStorage(dsn string) (*PgStorage, error) {
+	const timeout = 10
+
 	db, err := sql.Open("pgx", dsn)
 	if err != nil {
 		return nil, err
 	}
+
 	err = db.Ping()
 	if err != nil {
 		return nil, err
 	}
 
-	s := &pgStorage{db: db, timeout: 2}
+	s := &PgStorage{db: db, timeout: timeout}
+
 	err = s.upSchema()
 	if err != nil {
 		return nil, err
@@ -35,7 +39,7 @@ func NewPgStorage(dsn string) (*pgStorage, error) {
 	return s, nil
 }
 
-func (s *pgStorage) upSchema() error {
+func (s *PgStorage) upSchema() error {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(s.timeout)*time.Second)
 	defer cancel()
 
@@ -56,7 +60,7 @@ func (s *pgStorage) upSchema() error {
 	return nil
 }
 
-func (s *pgStorage) GetAll(ctx context.Context) ([]metric.Metrics, error) {
+func (s *PgStorage) GetAll(ctx context.Context) ([]metric.Metrics, error) {
 	ctx, cancel := context.WithTimeout(ctx, time.Duration(s.timeout)*time.Second)
 	defer cancel()
 
@@ -72,18 +76,22 @@ func (s *pgStorage) GetAll(ctx context.Context) ([]metric.Metrics, error) {
 
 	for t := 1; t <= 5; t += 2 {
 		rows, err = s.db.QueryContext(ctx, query)
+
 		var pgErr *pgconn.PgError
 		if err == nil || !errors.As(err, &pgErr) || !pgerrcode.IsConnectionException(pgErr.Code) {
 			break
 		}
+
 		time.Sleep(time.Duration(t) * time.Second)
 	}
+
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
 	res := make([]metric.Metrics, 0)
+
 	for rows.Next() {
 		var (
 			delta sql.NullInt64
@@ -104,6 +112,7 @@ func (s *pgStorage) GetAll(ctx context.Context) ([]metric.Metrics, error) {
 
 		res = append(res, mtrc)
 	}
+
 	if err = rows.Err(); err != nil {
 		return nil, err
 	}
@@ -111,7 +120,7 @@ func (s *pgStorage) GetAll(ctx context.Context) ([]metric.Metrics, error) {
 	return res, nil
 }
 
-func (s *pgStorage) GetValue(ctx context.Context, mtype string, mname string) (*metric.Metrics, error) {
+func (s *PgStorage) GetValue(ctx context.Context, mtype string, mname string) (*metric.Metrics, error) {
 	ctx, cancel := context.WithTimeout(ctx, time.Duration(s.timeout)*time.Second)
 	defer cancel()
 
@@ -130,16 +139,20 @@ func (s *pgStorage) GetValue(ctx context.Context, mtype string, mname string) (*
 
 	for t := 1; t <= 5; t += 2 {
 		err = s.db.QueryRowContext(ctx, query, mname, mtype).Scan(&mtrc.ID, &mtrc.MType, &delta, &value)
+
 		var pgErr *pgconn.PgError
 		if err == nil || !errors.As(err, &pgErr) || !pgerrcode.IsConnectionException(pgErr.Code) {
 			break
 		}
+
 		time.Sleep(time.Duration(t) * time.Second)
 	}
+
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil
+		if errors.Is(err, sql.ErrNoRows) {
+			return &metric.Metrics{}, nil
 		}
+
 		return nil, err
 	}
 
@@ -152,7 +165,7 @@ func (s *pgStorage) GetValue(ctx context.Context, mtype string, mname string) (*
 	return &mtrc, nil
 }
 
-func (s *pgStorage) Update(ctx context.Context, mtrc *metric.Metrics) (err error) {
+func (s *PgStorage) Update(ctx context.Context, mtrc *metric.Metrics) error {
 	ctx, cancel := context.WithTimeout(ctx, time.Duration(s.timeout)*time.Second)
 	defer cancel()
 
@@ -161,23 +174,34 @@ func (s *pgStorage) Update(ctx context.Context, mtrc *metric.Metrics) (err error
 		ON CONFLICT (id, mtype) DO UPDATE SET delta = metrics.delta + $3, value = $4
 		RETURNING delta`
 
-	var delta sql.NullInt64
+	var (
+		delta sql.NullInt64
+		err   error
+	)
+
 	for t := 1; t <= 5; t += 2 {
 		err = s.db.QueryRowContext(ctx, query, mtrc.ID, mtrc.MType, mtrc.Delta, mtrc.Value).Scan(&delta)
+
 		var pgErr *pgconn.PgError
 		if err == nil || !errors.As(err, &pgErr) || !pgerrcode.IsConnectionException(pgErr.Code) {
 			break
 		}
+
 		time.Sleep(time.Duration(t) * time.Second)
 	}
+
+	if err != nil {
+		return err
+	}
+
 	if delta.Valid {
 		*mtrc.Delta = delta.Int64
 	}
 
-	return
+	return nil
 }
 
-func (s *pgStorage) UpdateMany(ctx context.Context, mtrcs []metric.Metrics) error {
+func (s *PgStorage) UpdateMany(ctx context.Context, mtrcs []metric.Metrics) error {
 	ctx, cancel := context.WithTimeout(ctx, time.Duration(s.timeout)*time.Second)
 	defer cancel()
 
@@ -191,40 +215,32 @@ func (s *pgStorage) UpdateMany(ctx context.Context, mtrcs []metric.Metrics) erro
 		err  error
 	)
 
-	for t := 1; t <= 5; t += 2 {
-		tx, err = s.db.BeginTx(ctx, nil)
-		var pgErr *pgconn.PgError
-		if err == nil || !errors.As(err, &pgErr) || !pgerrcode.IsConnectionException(pgErr.Code) {
-			break
-		}
-		time.Sleep(time.Duration(t) * time.Second)
-	}
+	tx, err = s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
+
 	defer tx.Rollback()
 
-	for t := 1; t <= 5; t += 2 {
-		stmt, err = tx.PrepareContext(ctx, query)
-		var pgErr *pgconn.PgError
-		if err == nil || !errors.As(err, &pgErr) || !pgerrcode.IsConnectionException(pgErr.Code) {
-			break
-		}
-		time.Sleep(time.Duration(t) * time.Second)
-	}
+	stmt, err = tx.PrepareContext(ctx, query)
 	if err != nil {
 		return err
 	}
+
+	defer stmt.Close()
 
 	for _, mtrc := range mtrcs {
 		for t := 1; t <= 5; t += 2 {
 			_, err = stmt.ExecContext(ctx, mtrc.ID, mtrc.MType, mtrc.Delta, mtrc.Value)
+
 			var pgErr *pgconn.PgError
 			if err == nil || !errors.As(err, &pgErr) || !pgerrcode.IsConnectionException(pgErr.Code) {
 				break
 			}
+
 			time.Sleep(time.Duration(t) * time.Second)
 		}
+
 		if err != nil {
 			return err
 		}
@@ -233,18 +249,22 @@ func (s *pgStorage) UpdateMany(ctx context.Context, mtrcs []metric.Metrics) erro
 	return tx.Commit()
 }
 
-func (s *pgStorage) Ping() (err error) {
+func (s *PgStorage) Ping() error {
+	var err error
 	for t := 1; t <= 5; t += 2 {
 		err = s.db.Ping()
+
 		var pgErr *pgconn.PgError
 		if err == nil || !errors.As(err, &pgErr) || !pgerrcode.IsConnectionException(pgErr.Code) {
 			break
 		}
+
 		time.Sleep(time.Duration(t) * time.Second)
 	}
-	return
+
+	return err
 }
 
-func (s *pgStorage) Close() error {
+func (s *PgStorage) Close() error {
 	return s.db.Close()
 }

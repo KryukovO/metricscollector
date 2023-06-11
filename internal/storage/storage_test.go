@@ -10,47 +10,51 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func newTestStorageRepo(clear bool) (repo StorageRepo, stor []metric.Metrics, err error) {
+func newTestRepo(clear bool) (*memstorage.MemStorage, []metric.Metrics, error) {
 	var (
 		counterVal int64 = 100
 		gaugeVal         = 12345.67
+		stor       []metric.Metrics
 	)
 
-	stor = []metric.Metrics{
-		{
-			ID:    "PollCount",
-			MType: metric.CounterMetric,
-			Delta: &counterVal,
-		},
-		{
-			ID:    "RandomValue",
-			MType: metric.GaugeMetric,
-			Value: &gaugeVal,
-		},
-	}
-
-	repo, err = memstorage.NewMemStorage("", false, 0, nil)
+	repo, err := memstorage.NewMemStorage("", false, 0, nil)
 	if err != nil {
 		return nil, nil, err
 	}
+
 	if !clear {
+		stor = []metric.Metrics{
+			{
+				ID:    "PollCount",
+				MType: metric.CounterMetric,
+				Delta: &counterVal,
+			},
+			{
+				ID:    "RandomValue",
+				MType: metric.GaugeMetric,
+				Value: &gaugeVal,
+			},
+		}
+
 		err = repo.Update(context.Background(), &stor[0])
 		if err != nil {
 			return nil, nil, err
 		}
+
 		err = repo.Update(context.Background(), &stor[1])
 		if err != nil {
 			return nil, nil, err
 		}
 	}
 
-	return
+	return repo, stor, nil
 }
 
 func TestGetAll(t *testing.T) {
-	repo, stor, err := newTestStorageRepo(false)
+	repo, stor, err := newTestRepo(false)
 	require.NoError(t, err)
-	s := storage{repo: repo}
+
+	s := MetricsStorage{repo: repo}
 
 	v, err := s.GetAll(context.Background())
 	assert.NoError(t, err)
@@ -67,10 +71,12 @@ func TestGetValue(t *testing.T) {
 		mtype string
 		mname string
 	}
+
 	type want struct {
 		expected *metric.Metrics
 		wantErr  bool
 	}
+
 	tests := []struct {
 		name string
 		args args
@@ -113,7 +119,7 @@ func TestGetValue(t *testing.T) {
 				mname: "Alloc",
 			},
 			want: want{
-				expected: nil,
+				expected: &metric.Metrics{},
 				wantErr:  false,
 			},
 		},
@@ -124,7 +130,7 @@ func TestGetValue(t *testing.T) {
 				mname: "PollCount",
 			},
 			want: want{
-				expected: nil,
+				expected: &metric.Metrics{},
 				wantErr:  false,
 			},
 		},
@@ -141,9 +147,10 @@ func TestGetValue(t *testing.T) {
 		},
 	}
 
-	repo, _, err := newTestStorageRepo(false)
+	repo, _, err := newTestRepo(false)
 	require.NoError(t, err)
-	s := NewStorage(repo)
+
+	s := NewMetricsStorage(repo)
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -242,9 +249,10 @@ func TestUpdate(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		repo, _, err := newTestStorageRepo(true)
+		repo, _, err := newTestRepo(true)
 		require.NoError(t, err)
-		s := NewStorage(repo)
+
+		s := NewMetricsStorage(repo)
 
 		t.Run(test.name, func(t *testing.T) {
 			err := s.Update(context.Background(), &test.arg)
@@ -261,10 +269,16 @@ func TestUpdate(t *testing.T) {
 				require.Equal(t, true, len(stor) == 1, "The update was successful, but the value was not saved")
 				v := stor[0]
 				if test.arg.Delta != nil {
-					assert.EqualValues(t, *test.arg.Delta, *v.Delta, "Saved value '%v' is not equal to expected '%v'", *v.Delta, *test.arg.Delta)
+					assert.EqualValues(
+						t, *test.arg.Delta, *v.Delta,
+						"Saved value '%v' is not equal to expected '%v'", *v.Delta, *test.arg.Delta,
+					)
 				}
 				if test.arg.Value != nil {
-					assert.EqualValues(t, *test.arg.Value, *v.Value, "Saved value '%v' is not equal to expected '%v'", *v.Value, *test.arg.Value)
+					assert.EqualValues(
+						t, *test.arg.Value, *v.Value,
+						"Saved value '%v' is not equal to expected '%v'", *v.Value, *test.arg.Value,
+					)
 				}
 			}
 		})
@@ -365,9 +379,10 @@ func TestUpdateMany(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		repo, _, err := newTestStorageRepo(true)
+		repo, _, err := newTestRepo(true)
 		require.NoError(t, err)
-		s := NewStorage(repo)
+
+		s := NewMetricsStorage(repo)
 
 		t.Run(test.name, func(t *testing.T) {
 			err := s.UpdateMany(context.Background(), test.arg)

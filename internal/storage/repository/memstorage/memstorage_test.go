@@ -15,7 +15,7 @@ func TestGetAll(t *testing.T) {
 		gaugeVal         = 12345.67
 	)
 
-	s := &memStorage{
+	s := &MemStorage{
 		storage: []metric.Metrics{
 			{
 				ID:    "PollCount",
@@ -45,10 +45,12 @@ func TestGetValue(t *testing.T) {
 		mtype string
 		mname string
 	}
+
 	type want struct {
 		value *metric.Metrics
 		ok    bool
 	}
+
 	tests := []struct {
 		name string
 		args args
@@ -91,7 +93,7 @@ func TestGetValue(t *testing.T) {
 				mname: "Alloc",
 			},
 			want: want{
-				value: nil,
+				value: &metric.Metrics{},
 				ok:    false,
 			},
 		},
@@ -102,7 +104,7 @@ func TestGetValue(t *testing.T) {
 				mname: "PollCount",
 			},
 			want: want{
-				value: nil,
+				value: &metric.Metrics{},
 				ok:    false,
 			},
 		},
@@ -113,7 +115,7 @@ func TestGetValue(t *testing.T) {
 				mname: "PollCount",
 			},
 			want: want{
-				value: nil,
+				value: &metric.Metrics{},
 				ok:    false,
 			},
 		},
@@ -121,7 +123,7 @@ func TestGetValue(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			s := &memStorage{
+			s := &MemStorage{
 				storage: []metric.Metrics{
 					{
 						ID:    "PollCount",
@@ -141,7 +143,6 @@ func TestGetValue(t *testing.T) {
 			assert.Equal(t, test.want.value, v)
 		})
 	}
-
 }
 
 func TestUpdate(t *testing.T) {
@@ -176,7 +177,7 @@ func TestUpdate(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			s := &memStorage{
+			s := &MemStorage{
 				storage: make([]metric.Metrics, 0),
 			}
 
@@ -190,10 +191,16 @@ func TestUpdate(t *testing.T) {
 				require.Equal(t, true, len(s.storage) == 1, "The update was successful, but the value was not saved")
 				v := s.storage[0]
 				if test.arg.Delta != nil {
-					assert.EqualValues(t, *test.arg.Delta, *v.Delta, "Saved value '%v' is not equal to expected '%v'", *v.Delta, *test.arg.Delta)
+					assert.EqualValues(
+						t, *test.arg.Delta, *v.Delta,
+						"Saved value '%v' is not equal to expected '%v'", *v.Delta, *test.arg.Delta,
+					)
 				}
 				if test.arg.Value != nil {
-					assert.EqualValues(t, *test.arg.Value, *v.Value, "Saved value '%v' is not equal to expected '%v'", *v.Value, *test.arg.Value)
+					assert.EqualValues(
+						t, *test.arg.Value, *v.Value,
+						"Saved value '%v' is not equal to expected '%v'", *v.Value, *test.arg.Value,
+					)
 				}
 			}
 		})

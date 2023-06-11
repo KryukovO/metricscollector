@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"errors"
 	"net/http"
 	"strings"
 	"time"
@@ -10,37 +11,47 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-type MiddlewareManager struct {
+type Manager struct {
 	l *log.Logger
 }
 
-func NewMiddlewareManager(l *log.Logger) *MiddlewareManager {
+func NewManager(l *log.Logger) *Manager {
 	lg := log.StandardLogger()
 	if l != nil {
 		lg = l
 	}
-	return &MiddlewareManager{l: lg}
+
+	return &Manager{l: lg}
 }
 
-func (mw *MiddlewareManager) LoggingMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
-	return echo.HandlerFunc(func(e echo.Context) (err error) {
-		mw.l.Infof("recieved query with method %s: %s", e.Request().Method, e.Request().RequestURI)
+func (mw *Manager) LoggingMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
+	return echo.HandlerFunc(func(e echo.Context) error {
+		mw.l.Infof("received query with method %s: %s", e.Request().Method, e.Request().RequestURI)
 
 		ts := time.Now()
-		res := next(e)
+		err := next(e)
 
-		if res != nil {
-			mw.l.Infof("query response status: %d; size: %d; duration: %s", res.(*echo.HTTPError).Code, e.Response().Size, time.Since(ts))
+		if err != nil {
+			var echoErr *echo.HTTPError
+			if errors.As(err, &echoErr) {
+				mw.l.Infof(
+					"query response status: %d; size: %d; duration: %s",
+					echoErr.Code, e.Response().Size, time.Since(ts),
+				)
+			}
 		} else {
-			mw.l.Infof("query response status: %d; size: %d; duration: %s", e.Response().Status, e.Response().Size, time.Since(ts))
+			mw.l.Infof(
+				"query response status: %d; size: %d; duration: %s",
+				e.Response().Status, e.Response().Size, time.Since(ts),
+			)
 		}
 
-		return res
+		return err
 	})
 }
 
-func (mw *MiddlewareManager) GZipMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
-	return echo.HandlerFunc(func(e echo.Context) (err error) {
+func (mw *Manager) GZipMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
+	return echo.HandlerFunc(func(e echo.Context) error {
 		// Допустимые для сжатия форматы данных в ответе
 		acceptTypes := []string{"application/json", "text/html"}
 
@@ -60,6 +71,7 @@ func (mw *MiddlewareManager) GZipMiddleware(next echo.HandlerFunc) echo.HandlerF
 			cr, err := models.NewCompressReader(e.Request().Body)
 			if err != nil {
 				mw.l.Infof("something went wrong: %s", err.Error())
+
 				return e.NoContent(http.StatusInternalServerError)
 			}
 

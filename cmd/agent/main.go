@@ -10,12 +10,18 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+const (
+	serverAddress  = "localhost:8080"
+	reportInterval = 10
+	pollInterval   = 2
+)
+
 func main() {
 	c := config.NewConfig()
 
-	flag.StringVar(&c.ServerAddress, "a", "localhost:8080", "Server endpoint address")
-	flag.UintVar(&c.ReportInterval, "r", 10, "Metric reporting frequency in second")
-	flag.UintVar(&c.PollInterval, "p", 2, "Metric polling frequency in seconds")
+	flag.StringVar(&c.ServerAddress, "a", serverAddress, "Server endpoint address")
+	flag.UintVar(&c.ReportInterval, "r", reportInterval, "Metric reporting frequency in second")
+	flag.UintVar(&c.PollInterval, "p", pollInterval, "Metric polling frequency in seconds")
 	flag.Parse()
 
 	l := log.New()

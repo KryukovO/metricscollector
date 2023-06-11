@@ -12,10 +12,12 @@ func TestScanMetrics(t *testing.T) {
 		stor map[string]interface{}
 		rnd  *rand.Rand
 	}
+
 	type want struct {
 		keys    []string
 		wantErr bool
 	}
+
 	tests := []struct {
 		name string
 		args args
@@ -28,7 +30,8 @@ func TestScanMetrics(t *testing.T) {
 				rnd:  rand.New(rand.NewSource(1)),
 			},
 			want: want{
-				keys: []string{"Alloc", "BuckHashSys", "Frees", "GCCPUFraction", "GCSys",
+				keys: []string{
+					"Alloc", "BuckHashSys", "Frees", "GCCPUFraction", "GCSys",
 					"HeapAlloc", "HeapIdle", "HeapInuse", "HeapObjects", "HeapReleased", "HeapSys", "LastGC", "Lookups",
 					"MCacheInuse", "MCacheSys", "MSpanInuse", "MSpanSys", "Mallocs", "NextGC", "NumForcedGC", "NumGC",
 					"OtherSys", "PauseTotalNs", "StackInuse", "StackSys", "Sys", "TotalAlloc", "PollCount", "RandomValue",
@@ -42,7 +45,8 @@ func TestScanMetrics(t *testing.T) {
 				stor: make(map[string]interface{}),
 			},
 			want: want{
-				keys: []string{"Alloc", "BuckHashSys", "Frees", "GCCPUFraction", "GCSys",
+				keys: []string{
+					"Alloc", "BuckHashSys", "Frees", "GCCPUFraction", "GCSys",
 					"HeapAlloc", "HeapIdle", "HeapInuse", "HeapObjects", "HeapReleased", "HeapSys", "LastGC", "Lookups",
 					"MCacheInuse", "MCacheSys", "MSpanInuse", "MSpanSys", "Mallocs", "NextGC", "NumForcedGC", "NumGC",
 					"OtherSys", "PauseTotalNs", "StackInuse", "StackSys", "Sys", "TotalAlloc", "PollCount", "RandomValue",

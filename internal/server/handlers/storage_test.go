@@ -3,6 +3,7 @@ package handlers
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -20,48 +21,88 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func newTestStorageRepo(clear bool) (repo storage.StorageRepo, stor []metric.Metrics, err error) {
+var (
+	ErrRecorderIsNil = errors.New("empty response recorder")
+	ErrURLIsEmpty    = errors.New("empty URL")
+)
+
+func newTestRepo(clear bool) (*memstorage.MemStorage, error) {
 	var (
 		counterVal int64 = 100
 		gaugeVal         = 12345.67
 	)
 
-	stor = []metric.Metrics{
-		{
-			ID:    "PollCount",
-			MType: metric.CounterMetric,
-			Delta: &counterVal,
-		},
-		{
-			ID:    "RandomValue",
-			MType: metric.GaugeMetric,
-			Value: &gaugeVal,
-		},
-	}
-
-	repo, err = memstorage.NewMemStorage("", false, 0, nil)
+	repo, err := memstorage.NewMemStorage("", false, 0, nil)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
+
 	if !clear {
-		err = repo.Update(context.Background(), &stor[0])
+		err = repo.Update(
+			context.Background(),
+			&metric.Metrics{
+				ID:    "PollCount",
+				MType: metric.CounterMetric,
+				Delta: &counterVal,
+			},
+		)
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
-		err = repo.Update(context.Background(), &stor[1])
+
+		err = repo.Update(
+			context.Background(),
+			&metric.Metrics{
+				ID:    "RandomValue",
+				MType: metric.GaugeMetric,
+				Value: &gaugeVal,
+			},
+		)
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 	}
 
-	return
+	return repo, nil
+}
+
+func newEchoContext(
+	rec *httptest.ResponseRecorder, method, url string,
+	body io.Reader, paramNames []string,
+) (echo.Context, error) {
+	if rec == nil {
+		return nil, ErrRecorderIsNil
+	}
+
+	if url == "" {
+		return nil, ErrURLIsEmpty
+	}
+
+	e := echo.New()
+	req := httptest.NewRequest(method, url, body)
+
+	ctx := e.NewContext(req, rec)
+	ctx.SetPath(url)
+
+	if len(paramNames) > 0 {
+		ctx.SetParamNames(paramNames...)
+
+		values := strings.Split(strings.Trim(url, "/"), "/")
+		bound := int(math.Min(float64(len(values)), 1))
+		ctx.SetParamValues(values[bound:]...)
+	}
+
+	return ctx, nil
 }
 
 func TestUpdateHandler(t *testing.T) {
+	params := []string{"mtype", "mname", "value"}
+
 	type args struct {
 		url    string
 		method string
 	}
+
 	tests := []struct {
 		name   string
 		args   args
@@ -150,24 +191,17 @@ func TestUpdateHandler(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			e := echo.New()
-			req := httptest.NewRequest(test.args.method, test.args.url, nil)
 			rec := httptest.NewRecorder()
+			ctx, err := newEchoContext(rec, test.args.method, test.args.url, nil, params)
+			require.NoError(t, err)
 
-			c := e.NewContext(req, rec)
-			c.SetPath(test.args.url)
-			c.SetParamNames("mtype", "mname", "value")
-			values := strings.Split(strings.Trim(test.args.url, "/"), "/")
-			bound := int(math.Min(float64(len(values)), 1))
-			c.SetParamValues(values[bound:]...)
-
-			repo, _, err := newTestStorageRepo(true)
+			repo, err := newTestRepo(true)
 			require.NoError(t, err)
 			s := StorageController{
-				storage: storage.NewStorage(repo),
+				storage: storage.NewMetricsStorage(repo),
 				l:       logrus.StandardLogger(),
 			}
-			err = s.updateHandler(c)
+			err = s.updateHandler(ctx)
 			require.NoError(t, err)
 
 			res := rec.Result()
@@ -180,10 +214,12 @@ func TestUpdateHandler(t *testing.T) {
 
 func TestUpdateJSONHandler(t *testing.T) {
 	url := "/update/"
+
 	type want struct {
 		status      int
 		contentType string
 	}
+
 	tests := []struct {
 		name string
 		body []byte
@@ -270,22 +306,20 @@ func TestUpdateJSONHandler(t *testing.T) {
 			},
 		},
 	}
+
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			e := echo.New()
-			req := httptest.NewRequest(http.MethodPost, url, bytes.NewReader(test.body))
 			rec := httptest.NewRecorder()
+			ctx, err := newEchoContext(rec, http.MethodPost, url, bytes.NewReader(test.body), nil)
+			require.NoError(t, err)
 
-			c := e.NewContext(req, rec)
-			c.SetPath(url)
-
-			repo, _, err := newTestStorageRepo(true)
+			repo, err := newTestRepo(true)
 			require.NoError(t, err)
 			s := StorageController{
-				storage: storage.NewStorage(repo),
+				storage: storage.NewMetricsStorage(repo),
 				l:       logrus.StandardLogger(),
 			}
-			err = s.updateJSONHandler(c)
+			err = s.updateJSONHandler(ctx)
 			require.NoError(t, err)
 
 			res := rec.Result()
@@ -305,8 +339,11 @@ func TestUpdatesHandler(t *testing.T) {
 		status int
 	}{
 		{
-			name:   "Correct body",
-			body:   []byte(`[{"id":"Mallocs", "type":"gauge", "value":100.0001}, {"id":"PollCount", "type":"counter", "delta":1}]`),
+			name: "Correct body",
+			body: []byte(
+				`[{"id":"Mallocs", "type":"gauge", "value":100.0001}, 
+				{"id":"PollCount", "type":"counter", "delta":1}]`,
+			),
 			status: http.StatusOK,
 		},
 		{
@@ -345,22 +382,20 @@ func TestUpdatesHandler(t *testing.T) {
 			status: http.StatusBadRequest,
 		},
 	}
+
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			e := echo.New()
-			req := httptest.NewRequest(http.MethodPost, url, bytes.NewReader(test.body))
 			rec := httptest.NewRecorder()
+			ctx, err := newEchoContext(rec, http.MethodPost, url, bytes.NewReader(test.body), nil)
+			require.NoError(t, err)
 
-			c := e.NewContext(req, rec)
-			c.SetPath(url)
-
-			repo, _, err := newTestStorageRepo(true)
+			repo, err := newTestRepo(true)
 			require.NoError(t, err)
 			s := StorageController{
-				storage: storage.NewStorage(repo),
+				storage: storage.NewMetricsStorage(repo),
 				l:       logrus.StandardLogger(),
 			}
-			err = s.updatesHandler(c)
+			err = s.updatesHandler(ctx)
 			require.NoError(t, err)
 
 			res := rec.Result()
@@ -372,14 +407,18 @@ func TestUpdatesHandler(t *testing.T) {
 }
 
 func TestGetValueHandler(t *testing.T) {
+	params := []string{"mtype", "mname"}
+
 	type args struct {
 		url    string
 		method string
 	}
+
 	type want struct {
 		status      int
 		contentType string
 	}
+
 	tests := []struct {
 		name string
 		args args
@@ -419,26 +458,20 @@ func TestGetValueHandler(t *testing.T) {
 			},
 		},
 	}
+
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			e := echo.New()
-			req := httptest.NewRequest(test.args.method, test.args.url, nil)
 			rec := httptest.NewRecorder()
+			ctx, err := newEchoContext(rec, test.args.method, test.args.url, nil, params)
+			require.NoError(t, err)
 
-			c := e.NewContext(req, rec)
-			c.SetPath(test.args.url)
-			c.SetParamNames("mtype", "mname")
-			values := strings.Split(strings.Trim(test.args.url, "/"), "/")
-			bound := int(math.Min(float64(len(values)), 1))
-			c.SetParamValues(values[bound:]...)
-
-			repo, _, err := newTestStorageRepo(false)
+			repo, err := newTestRepo(false)
 			require.NoError(t, err)
 			s := StorageController{
-				storage: storage.NewStorage(repo),
+				storage: storage.NewMetricsStorage(repo),
 				l:       logrus.StandardLogger(),
 			}
-			err = s.getValueHandler(c)
+			err = s.getValueHandler(ctx)
 			require.NoError(t, err)
 
 			res := rec.Result()
@@ -452,10 +485,12 @@ func TestGetValueHandler(t *testing.T) {
 
 func TestGetValueJSONHandler(t *testing.T) {
 	url := "/value/"
+
 	type want struct {
 		status      int
 		contentType string
 	}
+
 	tests := []struct {
 		name string
 		body []byte
@@ -486,22 +521,20 @@ func TestGetValueJSONHandler(t *testing.T) {
 			},
 		},
 	}
+
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			e := echo.New()
-			req := httptest.NewRequest(http.MethodPost, url, bytes.NewReader(test.body))
 			rec := httptest.NewRecorder()
+			ctx, err := newEchoContext(rec, http.MethodPost, url, bytes.NewReader(test.body), nil)
+			require.NoError(t, err)
 
-			c := e.NewContext(req, rec)
-			c.SetPath(url)
-
-			repo, _, err := newTestStorageRepo(false)
+			repo, err := newTestRepo(false)
 			require.NoError(t, err)
 			s := StorageController{
-				storage: storage.NewStorage(repo),
+				storage: storage.NewMetricsStorage(repo),
 				l:       logrus.StandardLogger(),
 			}
-			err = s.getValueJSONHandler(c)
+			err = s.getValueJSONHandler(ctx)
 			require.NoError(t, err)
 
 			res := rec.Result()
@@ -518,12 +551,14 @@ func TestGetAllHandler(t *testing.T) {
 		url    string
 		method string
 	}
+
 	type want struct {
 		status      int
 		contentType string
 		tableFormat string
 		dataFormat  string
 	}
+
 	tests := []struct {
 		name string
 		args args
@@ -543,26 +578,20 @@ func TestGetAllHandler(t *testing.T) {
 			},
 		},
 	}
+
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			e := echo.New()
-			req := httptest.NewRequest(test.args.method, test.args.url, nil)
 			rec := httptest.NewRecorder()
+			ctx, err := newEchoContext(rec, test.args.method, test.args.url, nil, nil)
+			require.NoError(t, err)
 
-			c := e.NewContext(req, rec)
-			c.SetPath(test.args.url)
-			c.SetParamNames("mtype", "mname")
-			values := strings.Split(strings.Trim(test.args.url, "/"), "/")
-			bound := int(math.Min(float64(len(values)), 1))
-			c.SetParamValues(values[bound:]...)
-
-			repo, _, err := newTestStorageRepo(false)
+			repo, err := newTestRepo(false)
 			require.NoError(t, err)
 			s := StorageController{
-				storage: storage.NewStorage(repo),
+				storage: storage.NewMetricsStorage(repo),
 				l:       logrus.StandardLogger(),
 			}
-			err = s.getAllHandler(c)
+			err = s.getAllHandler(ctx)
 			require.NoError(t, err)
 
 			res := rec.Result()
@@ -574,6 +603,7 @@ func TestGetAllHandler(t *testing.T) {
 			var rowWant string
 			stor, err := repo.GetAll(context.Background())
 			require.NoError(t, err)
+
 			for _, mtrc := range stor {
 				if mtrc.Delta != nil {
 					rowWant += fmt.Sprintf(test.want.dataFormat, mtrc.ID, mtrc.MType, *mtrc.Delta)
@@ -581,6 +611,7 @@ func TestGetAllHandler(t *testing.T) {
 					rowWant += fmt.Sprintf(test.want.dataFormat, mtrc.ID, mtrc.MType, *mtrc.Value)
 				}
 			}
+
 			rowWant = fmt.Sprintf(test.want.tableFormat, rowWant)
 
 			assert.Equal(t, test.want.status, res.StatusCode)

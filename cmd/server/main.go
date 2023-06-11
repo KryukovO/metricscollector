@@ -11,14 +11,22 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+const (
+	httpAddress     = "localhost:8080"
+	storeInterval   = 300
+	fileStoragePath = "/tmp/metrics-db.json"
+	restore         = true
+	dsn             = ""
+)
+
 func main() {
 	c := config.NewConfig()
 
-	flag.StringVar(&c.HTTPAddress, "a", "localhost:8080", "Server endpoint address")
-	flag.UintVar(&c.StoreInterval, "i", 300, "Store interval")
-	flag.StringVar(&c.FileStoragePath, "f", "/tmp/metrics-db.json", "File storage path")
-	flag.BoolVar(&c.Restore, "r", true, "Restore")
-	flag.StringVar(&c.DSN, "d", "", "Data source name")
+	flag.StringVar(&c.HTTPAddress, "a", httpAddress, "Server endpoint address")
+	flag.UintVar(&c.StoreInterval, "i", storeInterval, "Store interval")
+	flag.StringVar(&c.FileStoragePath, "f", fileStoragePath, "File storage path")
+	flag.BoolVar(&c.Restore, "r", restore, "Restore")
+	flag.StringVar(&c.DSN, "d", dsn, "Data source name")
 	flag.Parse()
 
 	l := log.New()

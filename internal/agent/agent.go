@@ -3,6 +3,7 @@ package agent
 import (
 	"bytes"
 	"compress/gzip"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -20,11 +21,12 @@ import (
 )
 
 var (
-	ErrStorageIsNil = errors.New("metrics storage is nil")
-	ErrClientIsNil  = errors.New("HTTP client is nil")
+	ErrStorageIsNil     = errors.New("metrics storage is nil")
+	ErrClientIsNil      = errors.New("HTTP client is nil")
+	ErrUnexpectedStatus = errors.New("unexpected response status")
 )
 
-const BatchSize = 20 // ограничение количества метрик, отправляемых одним запросом
+const batchSize = 20 // ограничение количества метрик, отправляемых одним запросом
 
 func Run(c *config.Config, l *log.Logger) error {
 	lg := log.StandardLogger()
@@ -37,14 +39,13 @@ func Run(c *config.Config, l *log.Logger) error {
 	rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
 
 	client := http.Client{
-		//TODO: timeout?
+		// NOTE: timeout?
 	}
 
 	var (
 		m          = make(map[string]interface{})
 		lastReport time.Time
 		lastScan   time.Time
-		err        error
 	)
 
 	for {
@@ -54,50 +55,16 @@ func Run(c *config.Config, l *log.Logger) error {
 			if err != nil {
 				return err
 			}
+
 			lastScan = time.Now()
 		}
 
 		// отправляем метрики на сервер, если прошло reportInterval секунд с последней отправки
 		// после отправки сбрасываем текущие сохраненные значения метрик
 		if time.Since(lastReport) > time.Duration(c.ReportInterval)*time.Second {
-			mtrcs := make([]metric.Metrics, 0, BatchSize)
-			for mname, mval := range m {
-				mtrc, err := metric.NewMetrics(mname, "", mval)
-				if err != nil {
-					lg.Infof("error sending '%s' metric value: %s", mname, err.Error())
-					continue
-				}
-				mtrcs = append(mtrcs, *mtrc)
-
-				if len(mtrcs) == BatchSize {
-					for t := 1; t <= 5; t += 2 {
-						err = sendMetrics(&client, c.ServerAddress, mtrcs)
-						if err == nil || !errors.Is(err, syscall.ECONNREFUSED) {
-							break
-						}
-						time.Sleep(time.Duration(t) * time.Second)
-					}
-					if err != nil {
-						lg.Infof("error sending metric values: %s", err.Error())
-					} else {
-						lg.Infof("metrics sent: %d", len(mtrcs))
-					}
-					mtrcs = make([]metric.Metrics, 0, BatchSize)
-				}
-			}
-			if len(mtrcs) > 0 {
-				for t := 1; t <= 5; t += 2 {
-					err = sendMetrics(&client, c.ServerAddress, mtrcs)
-					if err == nil || !errors.Is(err, syscall.ECONNREFUSED) {
-						break
-					}
-					time.Sleep(time.Duration(t) * time.Second)
-				}
-				if err != nil {
-					lg.Infof("error sending metric values: %s", err.Error())
-				} else {
-					lg.Infof("metrics sent: %d", len(mtrcs))
-				}
+			err := initMetricSend(&client, c.ServerAddress, m, lg)
+			if err != nil {
+				return err
 			}
 
 			lastReport = time.Now()
@@ -112,14 +79,20 @@ func Run(c *config.Config, l *log.Logger) error {
 // Сканирование метрик в хранилище m.
 //
 // rnd - опциональный параметр, используемый для генерации случайной метрики RandomValue.
-// Если rnd == nil, то используется стандартный генератор math/rand
+// Если rnd == nil, то используется стандартный генератор math/rand.
 func scanMetrics(m map[string]interface{}, rnd *rand.Rand) error {
 	if m == nil {
 		return ErrStorageIsNil
 	}
 
-	if _, ok := m["PollCount"]; !ok {
+	var pollCount int64
+
+	if val, ok := m["PollCount"]; !ok {
 		m["PollCount"] = int64(0)
+	} else {
+		if v, ok := val.(int64); ok {
+			pollCount = v
+		}
 	}
 
 	rtm := &runtime.MemStats{}
@@ -129,7 +102,7 @@ func scanMetrics(m map[string]interface{}, rnd *rand.Rand) error {
 	m["Alloc"] = float64(rtm.Alloc)
 	m["BuckHashSys"] = float64(rtm.BuckHashSys)
 	m["Frees"] = float64(rtm.Frees)
-	m["GCCPUFraction"] = float64(rtm.GCCPUFraction)
+	m["GCCPUFraction"] = rtm.GCCPUFraction
 	m["GCSys"] = float64(rtm.GCSys)
 	m["HeapAlloc"] = float64(rtm.HeapAlloc)
 	m["HeapIdle"] = float64(rtm.HeapIdle)
@@ -154,12 +127,62 @@ func scanMetrics(m map[string]interface{}, rnd *rand.Rand) error {
 	m["Sys"] = float64(rtm.Sys)
 	m["TotalAlloc"] = float64(rtm.TotalAlloc)
 
-	rndVal := float64(rand.Intn(10000000))
+	rndVal := float64(rand.Int())
 	if rnd != nil {
-		rndVal = float64(rnd.Intn(10000000))
+		rndVal = float64(rnd.Int())
 	}
+
 	m["RandomValue"] = rndVal
-	m["PollCount"] = m["PollCount"].(int64) + 1
+	m["PollCount"] = pollCount + 1
+
+	return nil
+}
+
+func initMetricSend(client *http.Client, address string, m map[string]interface{}, l *log.Logger) error {
+	if m == nil {
+		return ErrStorageIsNil
+	}
+
+	mtrcs := make([]metric.Metrics, 0, batchSize)
+
+	send := func([]metric.Metrics) {
+		var err error
+
+		for t := 1; t <= 5; t += 2 {
+			err = sendMetrics(client, address, mtrcs)
+			if err == nil || !errors.Is(err, syscall.ECONNREFUSED) {
+				break
+			}
+
+			time.Sleep(time.Duration(t) * time.Second)
+		}
+
+		if err != nil {
+			l.Infof("error sending metric values: %s", err.Error())
+		} else {
+			l.Infof("metrics sent: %d", len(mtrcs))
+		}
+	}
+
+	for mname, mval := range m {
+		mtrc, err := metric.NewMetrics(mname, "", mval)
+		if err != nil {
+			l.Infof("error sending '%s' metric value: %s", mname, err.Error())
+
+			continue
+		}
+
+		mtrcs = append(mtrcs, *mtrc)
+
+		if len(mtrcs) == batchSize {
+			send(mtrcs)
+			mtrcs = make([]metric.Metrics, 0, batchSize)
+		}
+	}
+
+	if len(mtrcs) > 0 {
+		send(mtrcs)
+	}
 
 	return nil
 }
@@ -177,13 +200,15 @@ func sendMetrics(client *http.Client, sAddr string, mtrcs []metric.Metrics) erro
 	}
 
 	buf := &bytes.Buffer{}
+
 	gz := gzip.NewWriter(buf)
 	if _, err = gz.Write(body); err != nil {
 		return err
 	}
+
 	gz.Close()
 
-	req, err := http.NewRequest(http.MethodPost, url, buf)
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, url, buf)
 	if err != nil {
 		return err
 	}
@@ -197,13 +222,15 @@ func sendMetrics(client *http.Client, sAddr string, mtrcs []metric.Metrics) erro
 	}
 
 	_, err = io.Copy(io.Discard, resp.Body)
+
 	defer resp.Body.Close()
+
 	if err != nil {
 		return err
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return errors.New(resp.Status)
+		return fmt.Errorf("%s: %w", resp.Status, ErrUnexpectedStatus)
 	}
 
 	return nil

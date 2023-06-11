@@ -21,34 +21,35 @@ func Run(c *config.Config, l *log.Logger) error {
 
 	// Инициализация хранилища
 	var (
-		repo storage.StorageRepo
+		repo storage.Repo
 		err  error
 	)
+
 	if c.DSN != "" {
 		repo, err = pgstorage.NewPgStorage(c.DSN)
 	} else {
 		repo, err = memstorage.NewMemStorage(c.FileStoragePath, c.Restore, time.Duration(c.StoreInterval)*time.Second, lg)
 	}
+
 	if err != nil {
 		return err
 	}
-	s := storage.NewStorage(repo)
+
+	s := storage.NewMetricsStorage(repo)
 	defer s.Close()
 
 	// Инициализация сервера
-	// TODO: переопределить e.HTTPErrorHandler, чтобы он не заполнял тело ответа
+	// NOTE: можно также переопределить e.HTTPErrorHandler, чтобы он не заполнял тело ответа
 	e := echo.New()
 	e.HideBanner = true
 	e.HidePort = true
+
 	if err := handlers.SetHandlers(e, s, lg); err != nil {
 		return err
 	}
 
 	// Запуск сервера
 	lg.Infof("Server is running on %s...", c.HTTPAddress)
-	if err := e.Start(c.HTTPAddress); err != nil {
-		return err
-	}
 
-	return nil
+	return e.Start(c.HTTPAddress)
 }

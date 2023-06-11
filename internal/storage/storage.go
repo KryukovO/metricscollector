@@ -6,21 +6,21 @@ import (
 	"github.com/KryukovO/metricscollector/internal/metric"
 )
 
-type storage struct {
-	repo StorageRepo
+type MetricsStorage struct {
+	repo Repo
 }
 
-func NewStorage(repo StorageRepo) *storage {
-	return &storage{
+func NewMetricsStorage(repo Repo) *MetricsStorage {
+	return &MetricsStorage{
 		repo: repo,
 	}
 }
 
-func (s *storage) GetAll(ctx context.Context) ([]metric.Metrics, error) {
+func (s *MetricsStorage) GetAll(ctx context.Context) ([]metric.Metrics, error) {
 	return s.repo.GetAll(ctx)
 }
 
-func (s *storage) GetValue(ctx context.Context, mtype string, mname string) (*metric.Metrics, error) {
+func (s *MetricsStorage) GetValue(ctx context.Context, mtype string, mname string) (*metric.Metrics, error) {
 	if mtype != metric.CounterMetric && mtype != metric.GaugeMetric {
 		return nil, metric.ErrWrongMetricType
 	}
@@ -28,26 +28,28 @@ func (s *storage) GetValue(ctx context.Context, mtype string, mname string) (*me
 	return s.repo.GetValue(ctx, mtype, mname)
 }
 
-func (s *storage) Update(ctx context.Context, mtrc *metric.Metrics) error {
+func (s *MetricsStorage) Update(ctx context.Context, mtrc *metric.Metrics) error {
 	if err := mtrc.Validate(); err != nil {
 		return err
 	}
+
 	return s.repo.Update(ctx, mtrc)
 }
 
-func (s *storage) UpdateMany(ctx context.Context, mtrcs []metric.Metrics) error {
+func (s *MetricsStorage) UpdateMany(ctx context.Context, mtrcs []metric.Metrics) error {
 	for _, mtrc := range mtrcs {
 		if err := mtrc.Validate(); err != nil {
 			return err
 		}
 	}
+
 	return s.repo.UpdateMany(ctx, mtrcs)
 }
 
-func (s *storage) Ping() bool {
+func (s *MetricsStorage) Ping() bool {
 	return s.repo.Ping() == nil
 }
 
-func (s *storage) Close() error {
+func (s *MetricsStorage) Close() error {
 	return s.repo.Close()
 }

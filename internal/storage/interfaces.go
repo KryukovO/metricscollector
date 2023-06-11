@@ -15,7 +15,7 @@ type Storage interface {
 	Close() error
 }
 
-type StorageRepo interface {
+type Repo interface {
 	GetAll(ctx context.Context) ([]metric.Metrics, error)
 	GetValue(ctx context.Context, mtype string, mname string) (*metric.Metrics, error)
 	Update(ctx context.Context, mtrc *metric.Metrics) error

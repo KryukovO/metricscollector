@@ -30,6 +30,7 @@ func NewMetrics(mname, mtype string, value interface{}) (*Metrics, error) {
 	if mname == "" {
 		return nil, ErrWrongMetricName
 	}
+
 	if value == nil {
 		return nil, ErrWrongMetricValue
 	}
@@ -40,6 +41,7 @@ func NewMetrics(mname, mtype string, value interface{}) (*Metrics, error) {
 		if !ok {
 			return nil, ErrWrongMetricValue
 		}
+
 		return &Metrics{
 			ID:    mname,
 			MType: CounterMetric,
@@ -52,32 +54,38 @@ func NewMetrics(mname, mtype string, value interface{}) (*Metrics, error) {
 			if !ok {
 				return nil, ErrWrongMetricValue
 			}
+
 			vf = float64(vi)
 		}
+
 		return &Metrics{
 			ID:    mname,
 			MType: GaugeMetric,
 			Value: &vf,
 		}, nil
 	case "":
-		switch v := value.(type) {
-		case int64:
-			return &Metrics{
-				ID:    mname,
-				MType: CounterMetric,
-				Delta: &v,
-			}, nil
-		case float64:
-			return &Metrics{
-				ID:    mname,
-				MType: GaugeMetric,
-				Value: &v,
-			}, nil
-		default:
-			return nil, ErrWrongMetricValue
-		}
+		return newMetricsByValue(mname, value)
 	default:
 		return nil, ErrWrongMetricType
+	}
+}
+
+func newMetricsByValue(mname string, value interface{}) (*Metrics, error) {
+	switch v := value.(type) {
+	case int64:
+		return &Metrics{
+			ID:    mname,
+			MType: CounterMetric,
+			Delta: &v,
+		}, nil
+	case float64:
+		return &Metrics{
+			ID:    mname,
+			MType: GaugeMetric,
+			Value: &v,
+		}, nil
+	default:
+		return nil, ErrWrongMetricValue
 	}
 }
 
