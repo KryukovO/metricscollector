@@ -54,15 +54,15 @@ func setStorageHandlers(router *echo.Router, s storage.Storage, l *log.Logger) e
 }
 
 func (c *StorageController) updateHandler(e echo.Context) error {
-	mtype := e.Param("mtype")
-	if mtype == "" {
+	mType := e.Param("mtype")
+	if mType == "" {
 		c.l.Info(metric.ErrWrongMetricType)
 
 		return e.NoContent(http.StatusBadRequest)
 	}
 
-	mname := e.Param("mname")
-	if mname == "" {
+	mName := e.Param("mname")
+	if mName == "" {
 		c.l.Info(metric.ErrWrongMetricName)
 
 		return e.NoContent(http.StatusNotFound)
@@ -91,7 +91,7 @@ func (c *StorageController) updateHandler(e echo.Context) error {
 		val = gaugeVal
 	}
 
-	mtrc, err := metric.NewMetrics(mname, mtype, val)
+	mtrc, err := metric.NewMetrics(mName, mType, val)
 	if errors.Is(err, metric.ErrWrongMetricName) {
 		c.l.Info(err.Error())
 

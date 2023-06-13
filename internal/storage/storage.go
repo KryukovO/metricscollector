@@ -26,15 +26,15 @@ func (s *MetricsStorage) GetAll(ctx context.Context) ([]metric.Metrics, error) {
 	return s.repo.GetAll(ctx)
 }
 
-func (s *MetricsStorage) GetValue(ctx context.Context, mtype string, mname string) (*metric.Metrics, error) {
-	if mtype != metric.CounterMetric && mtype != metric.GaugeMetric {
+func (s *MetricsStorage) GetValue(ctx context.Context, mType string, mName string) (*metric.Metrics, error) {
+	if mType != metric.CounterMetric && mType != metric.GaugeMetric {
 		return nil, metric.ErrWrongMetricType
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, s.timeout)
 	defer cancel()
 
-	return s.repo.GetValue(ctx, mtype, mname)
+	return s.repo.GetValue(ctx, mType, mName)
 }
 
 func (s *MetricsStorage) Update(ctx context.Context, mtrc *metric.Metrics) error {

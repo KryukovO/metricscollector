@@ -230,7 +230,7 @@ func (s *PgStorage) Update(ctx context.Context, mtrc *metric.Metrics) error {
 			return sql.NullInt64{}, err
 		}
 
-		return delta, nil
+		return delta, tx.Commit()
 	}
 
 	var (

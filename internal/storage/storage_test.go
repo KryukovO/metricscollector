@@ -70,8 +70,8 @@ func TestGetValue(t *testing.T) {
 	)
 
 	type args struct {
-		mtype string
-		mname string
+		mType string
+		mName string
 	}
 
 	type want struct {
@@ -87,8 +87,8 @@ func TestGetValue(t *testing.T) {
 		{
 			name: "Existing gauge value",
 			args: args{
-				mtype: "gauge",
-				mname: "RandomValue",
+				mType: "gauge",
+				mName: "RandomValue",
 			},
 			want: want{
 				expected: &metric.Metrics{
@@ -102,8 +102,8 @@ func TestGetValue(t *testing.T) {
 		{
 			name: "Existing counter value",
 			args: args{
-				mtype: "counter",
-				mname: "PollCount",
+				mType: "counter",
+				mName: "PollCount",
 			},
 			want: want{
 				expected: &metric.Metrics{
@@ -117,8 +117,8 @@ func TestGetValue(t *testing.T) {
 		{
 			name: "Metric with name does not exists",
 			args: args{
-				mtype: "gauge",
-				mname: "Alloc",
+				mType: "gauge",
+				mName: "Alloc",
 			},
 			want: want{
 				expected: &metric.Metrics{},
@@ -128,8 +128,8 @@ func TestGetValue(t *testing.T) {
 		{
 			name: "Metric with name exists, but type incorrect",
 			args: args{
-				mtype: "gauge",
-				mname: "PollCount",
+				mType: "gauge",
+				mName: "PollCount",
 			},
 			want: want{
 				expected: &metric.Metrics{},
@@ -139,8 +139,8 @@ func TestGetValue(t *testing.T) {
 		{
 			name: "Invalid metric type",
 			args: args{
-				mtype: "metric",
-				mname: "PollCount",
+				mType: "metric",
+				mName: "PollCount",
 			},
 			want: want{
 				expected: nil,
@@ -156,7 +156,7 @@ func TestGetValue(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			v, err := s.GetValue(context.Background(), test.args.mtype, test.args.mname)
+			v, err := s.GetValue(context.Background(), test.args.mType, test.args.mName)
 			assert.Equal(t, test.want.expected, v)
 			if test.want.wantErr {
 				assert.Error(t, err)

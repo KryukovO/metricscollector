@@ -42,7 +42,7 @@ func TestGetValue(t *testing.T) {
 	)
 
 	type args struct {
-		mtype string
+		mType string
 		mname string
 	}
 
@@ -59,7 +59,7 @@ func TestGetValue(t *testing.T) {
 		{
 			name: "Existing gauge value",
 			args: args{
-				mtype: "gauge",
+				mType: "gauge",
 				mname: "RandomValue",
 			},
 			want: want{
@@ -74,7 +74,7 @@ func TestGetValue(t *testing.T) {
 		{
 			name: "Existing counter value",
 			args: args{
-				mtype: "counter",
+				mType: "counter",
 				mname: "PollCount",
 			},
 			want: want{
@@ -89,7 +89,7 @@ func TestGetValue(t *testing.T) {
 		{
 			name: "Metric with name does not exists",
 			args: args{
-				mtype: "gauge",
+				mType: "gauge",
 				mname: "Alloc",
 			},
 			want: want{
@@ -100,7 +100,7 @@ func TestGetValue(t *testing.T) {
 		{
 			name: "Metric with name exists, but type incorrect",
 			args: args{
-				mtype: "gauge",
+				mType: "gauge",
 				mname: "PollCount",
 			},
 			want: want{
@@ -111,7 +111,7 @@ func TestGetValue(t *testing.T) {
 		{
 			name: "Incorrect metric type",
 			args: args{
-				mtype: "metric",
+				mType: "metric",
 				mname: "PollCount",
 			},
 			want: want{
@@ -138,7 +138,7 @@ func TestGetValue(t *testing.T) {
 				},
 			}
 
-			v, err := s.GetValue(context.Background(), test.args.mtype, test.args.mname)
+			v, err := s.GetValue(context.Background(), test.args.mType, test.args.mname)
 			assert.NoError(t, err)
 			assert.Equal(t, test.want.value, v)
 		})

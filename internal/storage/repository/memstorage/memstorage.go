@@ -184,12 +184,12 @@ func (s *MemStorage) GetAll(_ context.Context) ([]metric.Metrics, error) {
 	return data, nil
 }
 
-func (s *MemStorage) GetValue(_ context.Context, mtype string, mname string) (*metric.Metrics, error) {
+func (s *MemStorage) GetValue(_ context.Context, mType string, mName string) (*metric.Metrics, error) {
 	s.mtx.RLock()
 	defer s.mtx.RUnlock()
 
 	for _, mtrc := range s.storage {
-		if mtrc.MType == mtype && mtrc.ID == mname {
+		if mtrc.MType == mType && mtrc.ID == mName {
 			return &mtrc, nil
 		}
 	}
