@@ -46,11 +46,12 @@ func (s *PgStorage) upSchema(ctx context.Context) error {
 		query := `
 			CREATE TABLE IF NOT EXISTS metrics(
 				id INT GENERATED ALWAYS AS IDENTITY,
-				mname TEXT NOT NULL UNIQUE,
+				mname TEXT NOT NULL,
 				mtype TEXT NOT NULL,
 				delta BIGINT,
 				value DOUBLE PRECISION,
-				PRIMARY KEY(id)
+				PRIMARY KEY(id),
+				UNIQUE(mname, mtype)
 			)`
 
 		_, err := s.db.ExecContext(ctx, query)
@@ -211,8 +212,8 @@ func (s *PgStorage) GetValue(ctx context.Context, mType string, mName string) (*
 func (s *PgStorage) Update(ctx context.Context, mtrc *metric.Metrics) error {
 	insert := func() (sql.NullInt64, error) {
 		query := `
-			INSERT INTO metrics(id, mtype, delta, value) VALUES($1, $2, $3, $4)
-			ON CONFLICT (id, mtype) DO UPDATE SET delta = metrics.delta + $3, value = $4
+			INSERT INTO metrics(mname, mtype, delta, value) VALUES($1, $2, $3, $4)
+			ON CONFLICT (mname, mtype) DO UPDATE SET delta = metrics.delta + $3, value = $4
 			RETURNING delta`
 
 		var delta sql.NullInt64
@@ -265,8 +266,8 @@ func (s *PgStorage) Update(ctx context.Context, mtrc *metric.Metrics) error {
 func (s *PgStorage) UpdateMany(ctx context.Context, mtrcs []metric.Metrics) error {
 	insert := func() error {
 		query := `
-			INSERT INTO metrics(id, mtype, delta, value) VALUES($1, $2, $3, $4)
-			ON CONFLICT (id, mtype) DO UPDATE SET delta = metrics.delta + $3, value = $4`
+			INSERT INTO metrics(mname, mtype, delta, value) VALUES($1, $2, $3, $4)
+			ON CONFLICT (mname, mtype) DO UPDATE SET delta = metrics.delta + $3, value = $4`
 
 		tx, err := s.db.BeginTx(ctx, nil)
 		if err != nil {
