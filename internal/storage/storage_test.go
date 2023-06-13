@@ -12,12 +12,13 @@ import (
 
 func newTestRepo(clear bool) (*memstorage.MemStorage, []metric.Metrics, error) {
 	var (
+		retries          = []int{0}
 		counterVal int64 = 100
 		gaugeVal         = 12345.67
 		stor       []metric.Metrics
 	)
 
-	repo, err := memstorage.NewMemStorage("", false, 0, nil)
+	repo, err := memstorage.NewMemStorage(context.Background(), "", false, 0, retries, nil)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -63,6 +64,7 @@ func TestGetAll(t *testing.T) {
 
 func TestGetValue(t *testing.T) {
 	var (
+		timeout          = 10
 		counterVal int64 = 100
 		gaugeVal         = 12345.67
 	)
@@ -150,7 +152,7 @@ func TestGetValue(t *testing.T) {
 	repo, _, err := newTestRepo(false)
 	require.NoError(t, err)
 
-	s := NewMetricsStorage(repo)
+	s := NewMetricsStorage(repo, uint(timeout))
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -167,6 +169,7 @@ func TestGetValue(t *testing.T) {
 
 func TestUpdate(t *testing.T) {
 	var (
+		timeout          = 10
 		counterVal int64 = 100
 		gaugeVal         = 12345.67
 	)
@@ -252,7 +255,7 @@ func TestUpdate(t *testing.T) {
 		repo, _, err := newTestRepo(true)
 		require.NoError(t, err)
 
-		s := NewMetricsStorage(repo)
+		s := NewMetricsStorage(repo, uint(timeout))
 
 		t.Run(test.name, func(t *testing.T) {
 			err := s.Update(context.Background(), &test.arg)
@@ -287,6 +290,7 @@ func TestUpdate(t *testing.T) {
 
 func TestUpdateMany(t *testing.T) {
 	var (
+		timeout          = 10
 		counterVal int64 = 100
 		gaugeVal         = 12345.67
 	)
@@ -382,7 +386,7 @@ func TestUpdateMany(t *testing.T) {
 		repo, _, err := newTestRepo(true)
 		require.NoError(t, err)
 
-		s := NewMetricsStorage(repo)
+		s := NewMetricsStorage(repo, uint(timeout))
 
 		t.Run(test.name, func(t *testing.T) {
 			err := s.UpdateMany(context.Background(), test.arg)

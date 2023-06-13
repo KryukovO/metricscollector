@@ -1,6 +1,9 @@
 package server
 
 import (
+	"context"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/KryukovO/metricscollector/internal/server/config"
@@ -13,30 +16,56 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func Run(c *config.Config, l *log.Logger) error {
+type Server struct {
+	cfg *config.Config
+	l   *log.Logger
+}
+
+func NewServer(cfg *config.Config, l *log.Logger) *Server {
 	lg := log.StandardLogger()
 	if l != nil {
 		lg = l
 	}
 
+	return &Server{
+		cfg: cfg,
+		l:   lg,
+	}
+}
+
+func (s *Server) Run() error {
 	// Инициализация хранилища
 	var (
 		repo storage.Repo
 		err  error
 	)
 
-	if c.DSN != "" {
-		repo, err = pgstorage.NewPgStorage(c.DSN)
+	retries := []int{0}
+
+	for _, r := range strings.Split(s.cfg.Retries, ",") {
+		interval, err := strconv.Atoi(r)
+		if err != nil {
+			return err
+		}
+
+		retries = append(retries, interval)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(s.cfg.StorageTimeout)*time.Second)
+	defer cancel()
+
+	if s.cfg.DSN != "" {
+		repo, err = pgstorage.NewPgStorage(ctx, s.cfg.DSN, retries)
 	} else {
-		repo, err = memstorage.NewMemStorage(c.FileStoragePath, c.Restore, time.Duration(c.StoreInterval)*time.Second, lg)
+		repo, err = memstorage.NewMemStorage(ctx, s.cfg.FileStoragePath, s.cfg.Restore, s.cfg.StoreInterval, retries, s.l)
 	}
 
 	if err != nil {
 		return err
 	}
 
-	s := storage.NewMetricsStorage(repo)
-	defer s.Close()
+	stor := storage.NewMetricsStorage(repo, s.cfg.StorageTimeout)
+	defer stor.Close()
 
 	// Инициализация сервера
 	// NOTE: можно также переопределить e.HTTPErrorHandler, чтобы он не заполнял тело ответа
@@ -44,12 +73,12 @@ func Run(c *config.Config, l *log.Logger) error {
 	e.HideBanner = true
 	e.HidePort = true
 
-	if err := handlers.SetHandlers(e, s, lg); err != nil {
+	if err := handlers.SetHandlers(e, stor, s.l); err != nil {
 		return err
 	}
 
 	// Запуск сервера
-	lg.Infof("Server is running on %s...", c.HTTPAddress)
+	s.l.Infof("Server is running on %s...", s.cfg.HTTPAddress)
 
-	return e.Start(c.HTTPAddress)
+	return e.Start(s.cfg.HTTPAddress)
 }

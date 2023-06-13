@@ -24,10 +24,10 @@ type Metrics struct {
 
 // Создает структуру метрики.
 //
-// Если параметр mtype не заполнен, тип метрики определяется по переданному значению value:
+// Если параметр mType не заполнен, тип метрики определяется по переданному значению value:
 // float64 => gauge; int64 => counter.
-func NewMetrics(mname, mtype string, value interface{}) (*Metrics, error) {
-	if mname == "" {
+func NewMetrics(mName, mType string, value interface{}) (*Metrics, error) {
+	if mName == "" {
 		return nil, ErrWrongMetricName
 	}
 
@@ -35,7 +35,7 @@ func NewMetrics(mname, mtype string, value interface{}) (*Metrics, error) {
 		return nil, ErrWrongMetricValue
 	}
 
-	switch mtype {
+	switch mType {
 	case CounterMetric:
 		v, ok := value.(int64)
 		if !ok {
@@ -43,7 +43,7 @@ func NewMetrics(mname, mtype string, value interface{}) (*Metrics, error) {
 		}
 
 		return &Metrics{
-			ID:    mname,
+			ID:    mName,
 			MType: CounterMetric,
 			Delta: &v,
 		}, nil
@@ -59,28 +59,28 @@ func NewMetrics(mname, mtype string, value interface{}) (*Metrics, error) {
 		}
 
 		return &Metrics{
-			ID:    mname,
+			ID:    mName,
 			MType: GaugeMetric,
 			Value: &vf,
 		}, nil
 	case "":
-		return newMetricsByValue(mname, value)
+		return newMetricsByValue(mName, value)
 	default:
 		return nil, ErrWrongMetricType
 	}
 }
 
-func newMetricsByValue(mname string, value interface{}) (*Metrics, error) {
+func newMetricsByValue(mName string, value interface{}) (*Metrics, error) {
 	switch v := value.(type) {
 	case int64:
 		return &Metrics{
-			ID:    mname,
+			ID:    mName,
 			MType: CounterMetric,
 			Delta: &v,
 		}, nil
 	case float64:
 		return &Metrics{
-			ID:    mname,
+			ID:    mName,
 			MType: GaugeMetric,
 			Value: &v,
 		}, nil

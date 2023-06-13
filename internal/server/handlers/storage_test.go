@@ -28,11 +28,12 @@ var (
 
 func newTestRepo(clear bool) (*memstorage.MemStorage, error) {
 	var (
+		retries          = []int{0}
 		counterVal int64 = 100
 		gaugeVal         = 12345.67
 	)
 
-	repo, err := memstorage.NewMemStorage("", false, 0, nil)
+	repo, err := memstorage.NewMemStorage(context.Background(), "", false, 0, retries, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -97,6 +98,7 @@ func newEchoContext(
 
 func TestUpdateHandler(t *testing.T) {
 	params := []string{"mtype", "mname", "value"}
+	timeout := 10
 
 	type args struct {
 		url    string
@@ -198,7 +200,7 @@ func TestUpdateHandler(t *testing.T) {
 			repo, err := newTestRepo(true)
 			require.NoError(t, err)
 			s := StorageController{
-				storage: storage.NewMetricsStorage(repo),
+				storage: storage.NewMetricsStorage(repo, uint(timeout)),
 				l:       logrus.StandardLogger(),
 			}
 			err = s.updateHandler(ctx)
@@ -214,6 +216,7 @@ func TestUpdateHandler(t *testing.T) {
 
 func TestUpdateJSONHandler(t *testing.T) {
 	url := "/update/"
+	timeout := 10
 
 	type want struct {
 		status      int
@@ -316,7 +319,7 @@ func TestUpdateJSONHandler(t *testing.T) {
 			repo, err := newTestRepo(true)
 			require.NoError(t, err)
 			s := StorageController{
-				storage: storage.NewMetricsStorage(repo),
+				storage: storage.NewMetricsStorage(repo, uint(timeout)),
 				l:       logrus.StandardLogger(),
 			}
 			err = s.updateJSONHandler(ctx)
@@ -333,6 +336,8 @@ func TestUpdateJSONHandler(t *testing.T) {
 
 func TestUpdatesHandler(t *testing.T) {
 	url := "/updates/"
+	timeout := 10
+
 	tests := []struct {
 		name   string
 		body   []byte
@@ -392,7 +397,7 @@ func TestUpdatesHandler(t *testing.T) {
 			repo, err := newTestRepo(true)
 			require.NoError(t, err)
 			s := StorageController{
-				storage: storage.NewMetricsStorage(repo),
+				storage: storage.NewMetricsStorage(repo, uint(timeout)),
 				l:       logrus.StandardLogger(),
 			}
 			err = s.updatesHandler(ctx)
@@ -408,6 +413,7 @@ func TestUpdatesHandler(t *testing.T) {
 
 func TestGetValueHandler(t *testing.T) {
 	params := []string{"mtype", "mname"}
+	timeout := 10
 
 	type args struct {
 		url    string
@@ -468,7 +474,7 @@ func TestGetValueHandler(t *testing.T) {
 			repo, err := newTestRepo(false)
 			require.NoError(t, err)
 			s := StorageController{
-				storage: storage.NewMetricsStorage(repo),
+				storage: storage.NewMetricsStorage(repo, uint(timeout)),
 				l:       logrus.StandardLogger(),
 			}
 			err = s.getValueHandler(ctx)
@@ -485,6 +491,7 @@ func TestGetValueHandler(t *testing.T) {
 
 func TestGetValueJSONHandler(t *testing.T) {
 	url := "/value/"
+	timeout := 10
 
 	type want struct {
 		status      int
@@ -531,7 +538,7 @@ func TestGetValueJSONHandler(t *testing.T) {
 			repo, err := newTestRepo(false)
 			require.NoError(t, err)
 			s := StorageController{
-				storage: storage.NewMetricsStorage(repo),
+				storage: storage.NewMetricsStorage(repo, uint(timeout)),
 				l:       logrus.StandardLogger(),
 			}
 			err = s.getValueJSONHandler(ctx)
@@ -547,6 +554,8 @@ func TestGetValueJSONHandler(t *testing.T) {
 }
 
 func TestGetAllHandler(t *testing.T) {
+	timeout := 10
+
 	type args struct {
 		url    string
 		method string
@@ -588,7 +597,7 @@ func TestGetAllHandler(t *testing.T) {
 			repo, err := newTestRepo(false)
 			require.NoError(t, err)
 			s := StorageController{
-				storage: storage.NewMetricsStorage(repo),
+				storage: storage.NewMetricsStorage(repo, uint(timeout)),
 				l:       logrus.StandardLogger(),
 			}
 			err = s.getAllHandler(ctx)

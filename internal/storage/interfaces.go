@@ -11,7 +11,7 @@ type Storage interface {
 	GetValue(ctx context.Context, mtype string, mname string) (*metric.Metrics, error)
 	Update(ctx context.Context, mtrc *metric.Metrics) error
 	UpdateMany(ctx context.Context, mtrc []metric.Metrics) error
-	Ping() bool
+	Ping(ctx context.Context) bool
 	Close() error
 }
 
@@ -20,6 +20,6 @@ type Repo interface {
 	GetValue(ctx context.Context, mtype string, mname string) (*metric.Metrics, error)
 	Update(ctx context.Context, mtrc *metric.Metrics) error
 	UpdateMany(ctx context.Context, mtrc []metric.Metrics) error
-	Ping() error
+	Ping(ctx context.Context) error
 	Close() error
 }

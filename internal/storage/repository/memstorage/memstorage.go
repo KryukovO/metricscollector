@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/KryukovO/metricscollector/internal/metric"
+	"github.com/KryukovO/metricscollector/internal/utils"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -21,11 +22,15 @@ type MemStorage struct {
 	fileStoragePath string        // путь до файла, в который сохраняются метрики
 	syncSave        bool          // признак синхронной записи в файл
 	closeSaving     chan struct{} // канал, принимающий сообщение о необходимости прекратить сохранения в файл
+	retries         []int
 	mtx             sync.RWMutex
 	l               *log.Logger
 }
 
-func NewMemStorage(file string, restore bool, storeInterval time.Duration, l *log.Logger) (*MemStorage, error) {
+func NewMemStorage(
+	ctx context.Context, file string, restore bool,
+	storeInterval uint, retries []int, l *log.Logger,
+) (*MemStorage, error) {
 	lg := log.StandardLogger()
 	if l != nil {
 		lg = l
@@ -34,12 +39,13 @@ func NewMemStorage(file string, restore bool, storeInterval time.Duration, l *lo
 	s := &MemStorage{
 		storage:         make([]metric.Metrics, 0),
 		fileStoragePath: file,
+		retries:         retries,
 		syncSave:        storeInterval == 0,
 		l:               lg,
 	}
 
 	if restore {
-		err := s.load()
+		err := s.load(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -47,20 +53,23 @@ func NewMemStorage(file string, restore bool, storeInterval time.Duration, l *lo
 
 	if file != "" && storeInterval > 0 {
 		s.closeSaving = make(chan struct{})
-		ticker := time.NewTicker(storeInterval)
+		ticker := time.NewTicker(time.Duration(storeInterval) * time.Second)
 
 		go func() {
 			for {
 				select {
 				case <-s.closeSaving:
-					err := s.save()
+					err := s.save(context.Background())
 					if err != nil {
 						s.l.Infof("error when saving metrics to the file: %s", err)
 					}
 
+					ticker.Stop()
+
 					return
+
 				case <-ticker.C:
-					err := s.save()
+					err := s.save(context.Background())
 					if err != nil {
 						s.l.Infof("error when saving metrics to the file: %s", err)
 					}
@@ -89,7 +98,7 @@ func (s *MemStorage) update(mtrc *metric.Metrics) {
 	s.storage = append(s.storage, *mtrc)
 }
 
-func (s *MemStorage) save() error {
+func (s *MemStorage) save(ctx context.Context) error {
 	const filePerm fs.FileMode = 0o666
 
 	var (
@@ -101,13 +110,16 @@ func (s *MemStorage) save() error {
 	defer s.mtx.RUnlock()
 
 	if s.fileStoragePath != "" {
-		for t := 1; t <= 5; t += 2 {
+		for _, t := range s.retries {
+			err = utils.Wait(ctx, time.Duration(t)*time.Second)
+			if err != nil {
+				return err
+			}
+
 			file, err = os.OpenFile(s.fileStoragePath, os.O_WRONLY|os.O_CREATE, filePerm)
 			if err == nil || !errors.Is(err, syscall.EBUSY) {
 				break
 			}
-
-			time.Sleep(time.Duration(t) * time.Second)
 		}
 
 		if err != nil {
@@ -124,7 +136,7 @@ func (s *MemStorage) save() error {
 	return nil
 }
 
-func (s *MemStorage) load() error {
+func (s *MemStorage) load(ctx context.Context) error {
 	var (
 		data []byte
 		err  error
@@ -133,30 +145,33 @@ func (s *MemStorage) load() error {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 
-	if s.fileStoragePath != "" {
-		for t := 1; t <= 5; t += 2 {
-			data, err = os.ReadFile(s.fileStoragePath)
-			if err == nil || !errors.Is(err, syscall.EBUSY) {
-				break
-			}
+	if s.fileStoragePath == "" {
+		return nil
+	}
 
-			time.Sleep(time.Duration(t) * time.Second)
-		}
-
+	for _, t := range s.retries {
+		err = utils.Wait(ctx, time.Duration(t)*time.Second)
 		if err != nil {
-			if os.IsNotExist(err) {
-				return nil
-			}
-
 			return err
 		}
 
-		decoder := json.NewDecoder(bytes.NewReader(data))
-
-		return decoder.Decode(&s.storage)
+		data, err = os.ReadFile(s.fileStoragePath)
+		if err == nil || !errors.Is(err, syscall.EBUSY) {
+			break
+		}
 	}
 
-	return nil
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+
+		return err
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(data))
+
+	return decoder.Decode(&s.storage)
 }
 
 func (s *MemStorage) GetAll(_ context.Context) ([]metric.Metrics, error) {
@@ -182,10 +197,10 @@ func (s *MemStorage) GetValue(_ context.Context, mtype string, mname string) (*m
 	return &metric.Metrics{}, nil
 }
 
-func (s *MemStorage) Update(_ context.Context, mtrc *metric.Metrics) error {
+func (s *MemStorage) Update(ctx context.Context, mtrc *metric.Metrics) error {
 	defer func() {
 		if s.syncSave {
-			err := s.save()
+			err := s.save(ctx)
 			if err != nil {
 				s.l.Infof("error when saving metrics to the file: %s", err)
 			}
@@ -211,7 +226,7 @@ func (s *MemStorage) UpdateMany(_ context.Context, mtrcs []metric.Metrics) error
 	return nil
 }
 
-func (s *MemStorage) Ping() error {
+func (s *MemStorage) Ping(_ context.Context) error {
 	return nil
 }
 

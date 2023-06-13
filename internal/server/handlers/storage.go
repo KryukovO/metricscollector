@@ -318,7 +318,7 @@ func (c *StorageController) getAllHandler(e echo.Context) error {
 }
 
 func (c *StorageController) pingHandler(e echo.Context) error {
-	if c.storage.Ping() {
+	if c.storage.Ping(e.Request().Context()) {
 		return e.NoContent(http.StatusOK)
 	}
 
