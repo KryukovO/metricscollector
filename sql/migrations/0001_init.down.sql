@@ -1,0 +1,6 @@
+--
+BEGIN TRANSACTION;
+--
+ALTER TABLE metrics RENAME TO "__metrics";
+--
+COMMIT TRANSACTION;

@@ -4,10 +4,13 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/KryukovO/metricscollector/internal/metric"
 	"github.com/KryukovO/metricscollector/internal/utils"
+
+	"github.com/golang-migrate/migrate/v4"
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5/pgconn"
 )
@@ -17,7 +20,7 @@ type PgStorage struct {
 	retries []int
 }
 
-func NewPgStorage(ctx context.Context, dsn string, retries []int) (*PgStorage, error) {
+func NewPgStorage(ctx context.Context, dsn, migrations string, retries []int) (*PgStorage, error) {
 	db, err := sql.Open("pgx", dsn)
 	if err != nil {
 		return nil, err
@@ -33,7 +36,7 @@ func NewPgStorage(ctx context.Context, dsn string, retries []int) (*PgStorage, e
 		return nil, err
 	}
 
-	err = s.upSchema(ctx)
+	err = s.runMigrations(dsn, migrations)
 	if err != nil {
 		return nil, err
 	}
@@ -41,44 +44,20 @@ func NewPgStorage(ctx context.Context, dsn string, retries []int) (*PgStorage, e
 	return s, nil
 }
 
-func (s *PgStorage) upSchema(ctx context.Context) error {
-	create := func() error {
-		query := `
-			CREATE TABLE IF NOT EXISTS metrics(
-				id INT GENERATED ALWAYS AS IDENTITY,
-				mname TEXT NOT NULL,
-				mtype TEXT NOT NULL,
-				delta BIGINT,
-				value DOUBLE PRECISION,
-				PRIMARY KEY(id),
-				UNIQUE(mname, mtype)
-			)`
-
-		_, err := s.db.ExecContext(ctx, query)
-		if err != nil {
-			return err
-		}
-
-		return nil
+func (s *PgStorage) runMigrations(dsn, migrations string) error {
+	m, err := migrate.New(
+		fmt.Sprintf("file://%s", migrations),
+		dsn,
+	)
+	if err != nil {
+		return err
 	}
 
-	var err error
-
-	for _, t := range s.retries {
-		err = utils.Wait(ctx, time.Duration(t)*time.Second)
-		if err != nil {
-			return err
-		}
-
-		err = create()
-
-		var pgErr *pgconn.PgError
-		if err == nil || !errors.As(err, &pgErr) || !pgerrcode.IsConnectionException(pgErr.Code) {
-			break
-		}
+	if err = m.Up(); err != nil && !errors.Is(err, migrate.ErrNoChange) {
+		return err
 	}
 
-	return err
+	return nil
 }
 
 func (s *PgStorage) GetAll(ctx context.Context) ([]metric.Metrics, error) {

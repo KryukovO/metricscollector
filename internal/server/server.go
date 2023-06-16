@@ -55,7 +55,7 @@ func (s *Server) Run() error {
 	defer cancel()
 
 	if s.cfg.DSN != "" {
-		repo, err = pgstorage.NewPgStorage(ctx, s.cfg.DSN, retries)
+		repo, err = pgstorage.NewPgStorage(ctx, s.cfg.DSN, s.cfg.Migrations, retries)
 	} else {
 		repo, err = memstorage.NewMemStorage(ctx, s.cfg.FileStoragePath, s.cfg.Restore, s.cfg.StoreInterval, retries, s.l)
 	}

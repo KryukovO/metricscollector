@@ -7,6 +7,8 @@ import (
 	"github.com/KryukovO/metricscollector/internal/server/config"
 
 	"github.com/caarlos0/env"
+	_ "github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	log "github.com/sirupsen/logrus"
 )
@@ -19,6 +21,7 @@ const (
 	dsn             = ""
 	storageTimeout  = 5
 	retries         = "1,3,5"
+	migrations      = "sql/migrations"
 )
 
 func main() {
@@ -31,6 +34,7 @@ func main() {
 	flag.StringVar(&cfg.DSN, "d", dsn, "Data source name")
 	flag.UintVar(&cfg.StorageTimeout, "timeout", storageTimeout, "Storage connection timeout")
 	flag.StringVar(&cfg.Retries, "retries", retries, "Server connect retry intervals")
+	flag.StringVar(&cfg.Migrations, "migrations", migrations, "Directory of database migration files")
 	flag.Parse()
 
 	l := log.New()
