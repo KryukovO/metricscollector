@@ -8,72 +8,42 @@ import (
 )
 
 func TestScanMetrics(t *testing.T) {
-	type args struct {
-		stor map[string]interface{}
-		rnd  *rand.Rand
-	}
-	type want struct {
-		keys    []string
-		wantErr bool
-	}
 	tests := []struct {
 		name string
-		args args
-		want want
+		rnd  *rand.Rand
+		keys []string
 	}{
 		{
 			name: "Correct test",
-			args: args{
-				stor: make(map[string]interface{}),
-				rnd:  rand.New(rand.NewSource(1)),
-			},
-			want: want{
-				keys: []string{"Alloc", "BuckHashSys", "Frees", "GCCPUFraction", "GCSys",
-					"HeapAlloc", "HeapIdle", "HeapInuse", "HeapObjects", "HeapReleased", "HeapSys", "LastGC", "Lookups",
-					"MCacheInuse", "MCacheSys", "MSpanInuse", "MSpanSys", "Mallocs", "NextGC", "NumForcedGC", "NumGC",
-					"OtherSys", "PauseTotalNs", "StackInuse", "StackSys", "Sys", "TotalAlloc", "PollCount", "RandomValue",
-				},
-				wantErr: false,
+			rnd:  rand.New(rand.NewSource(1)),
+			keys: []string{
+				"Alloc", "BuckHashSys", "Frees", "GCCPUFraction", "GCSys",
+				"HeapAlloc", "HeapIdle", "HeapInuse", "HeapObjects", "HeapReleased", "HeapSys", "LastGC", "Lookups",
+				"MCacheInuse", "MCacheSys", "MSpanInuse", "MSpanSys", "Mallocs", "NextGC", "NumForcedGC", "NumGC",
+				"OtherSys", "PauseTotalNs", "StackInuse", "StackSys", "Sys", "TotalAlloc", "RandomValue",
 			},
 		},
 		{
 			name: "Nil random generator",
-			args: args{
-				stor: make(map[string]interface{}),
-			},
-			want: want{
-				keys: []string{"Alloc", "BuckHashSys", "Frees", "GCCPUFraction", "GCSys",
-					"HeapAlloc", "HeapIdle", "HeapInuse", "HeapObjects", "HeapReleased", "HeapSys", "LastGC", "Lookups",
-					"MCacheInuse", "MCacheSys", "MSpanInuse", "MSpanSys", "Mallocs", "NextGC", "NumForcedGC", "NumGC",
-					"OtherSys", "PauseTotalNs", "StackInuse", "StackSys", "Sys", "TotalAlloc", "PollCount", "RandomValue",
-				},
-				wantErr: false,
-			},
-		},
-
-		{
-			name: "Nil metrics storage",
-			want: want{
-				keys:    []string{},
-				wantErr: true,
+			keys: []string{
+				"Alloc", "BuckHashSys", "Frees", "GCCPUFraction", "GCSys",
+				"HeapAlloc", "HeapIdle", "HeapInuse", "HeapObjects", "HeapReleased", "HeapSys", "LastGC", "Lookups",
+				"MCacheInuse", "MCacheSys", "MSpanInuse", "MSpanSys", "Mallocs", "NextGC", "NumForcedGC", "NumGC",
+				"OtherSys", "PauseTotalNs", "StackInuse", "StackSys", "Sys", "TotalAlloc", "RandomValue",
 			},
 		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			err := scanMetrics(test.args.stor, test.args.rnd)
+			stor, err := scanMetrics(test.rnd)
+			assert.NoError(t, err)
 
-			keys := make([]string, 0, len(test.want.keys))
-			for key := range test.args.stor {
-				keys = append(keys, key)
+			keys := make([]string, 0, len(test.keys))
+			for _, mtrc := range stor {
+				keys = append(keys, mtrc.ID)
 			}
 
-			assert.ElementsMatch(t, test.want.keys, keys)
-			if !test.want.wantErr {
-				assert.NoError(t, err)
-			} else {
-				assert.Error(t, err)
-			}
+			assert.ElementsMatch(t, test.keys, keys)
 		})
 	}
 }

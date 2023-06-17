@@ -1,14 +1,9 @@
 package agent
 
 import (
-	"bytes"
-	"compress/gzip"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"math/rand"
-	"net/http"
 	"runtime"
 	"time"
 
@@ -19,56 +14,79 @@ import (
 )
 
 var (
-	ErrStorageIsNil = errors.New("metrics storage is nil")
-	ErrClientIsNil  = errors.New("HTTP client is nil")
-	ErrMetricIsNil  = errors.New("metric is nil")
+	ErrStorageIsNil     = errors.New("metrics buf is nil")
+	ErrClientIsNil      = errors.New("HTTP client is nil")
+	ErrUnexpectedStatus = errors.New("unexpected response status")
 )
 
-func Run(c *config.Config) error {
-	log.Info("Agent is running...")
+type Agent struct {
+	pollInterval   uint
+	reportInterval uint
+	sender         *Sender
+	l              *log.Logger
+}
+
+func NewAgent(cfg *config.Config, l *log.Logger) (*Agent, error) {
+	lg := log.StandardLogger()
+	if l != nil {
+		lg = l
+	}
+
+	sender, err := NewSender(cfg, lg)
+	if err != nil {
+		return nil, fmt.Errorf("sender initialization error: %w", err)
+	}
+
+	return &Agent{
+		pollInterval:   cfg.PollInterval,
+		reportInterval: cfg.ReportInterval,
+		sender:         sender,
+		l:              lg,
+	}, nil
+}
+
+func (a *Agent) Run() error {
+	a.l.Info("Agent is running...")
 
 	rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
 
-	client := http.Client{
-		//TODO: timeout?
-	}
-
-	m := make(map[string]interface{})
-	var lastReport time.Time
-	var lastScan time.Time
+	var (
+		scanCount  int64
+		storage    []metric.Metrics
+		lastReport time.Time
+		lastScan   time.Time
+		err        error
+	)
 
 	for {
 		// сканируем метрики, если прошло pollInterval секунд с последнего сканирования
-		if time.Since(lastScan) > time.Duration(c.PollInterval)*time.Second {
-			err := scanMetrics(m, rnd)
+		if time.Since(lastScan) > time.Duration(a.pollInterval)*time.Second {
+			storage, err = scanMetrics(rnd)
 			if err != nil {
 				return err
 			}
+
 			lastScan = time.Now()
+			scanCount++
 		}
 
 		// отправляем метрики на сервер, если прошло reportInterval секунд с последней отправки
-		// после отправки сбрасываем текущие сохраненные значения метрик
-		if time.Since(lastReport) > time.Duration(c.ReportInterval)*time.Second {
-			for mname, mval := range m {
-				mtrc, err := metric.NewMetrics(mname, mval)
-				if err != nil {
-					log.Infof("error sending '%s' metric value: %s", mname, err.Error())
-					continue
-				}
-
-				err = sendMetric(&client, c.ServerAddress, mtrc)
-				if err == ErrClientIsNil {
-					return err
-				}
-				if err != nil {
-					log.Infof("error sending '%s' metric value: %s", mname, err.Error())
-				}
+		// после отправки сбрасываем счётчик сканирований
+		if time.Since(lastReport) > time.Duration(a.reportInterval)*time.Second {
+			pollCount, err := metric.NewMetrics("PollCount", "", scanCount)
+			if err != nil {
+				return err
 			}
 
-			log.Info("metrics sent")
+			storage = append(storage, *pollCount)
+
+			err = a.sender.InitMetricSend(storage)
+			if err != nil {
+				return err
+			}
+
 			lastReport = time.Now()
-			m = make(map[string]interface{})
+			scanCount = 0
 		}
 
 		// выполняем проверку необходимости сканирования/отправки раз в секунду
@@ -76,102 +94,62 @@ func Run(c *config.Config) error {
 	}
 }
 
-// Сканирование метрик в хранилище m.
+// Сканирование метрик в хранилище.
 //
 // rnd - опциональный параметр, используемый для генерации случайной метрики RandomValue.
-// Если rnd == nil, то используется стандартный генератор math/rand
-func scanMetrics(m map[string]interface{}, rnd *rand.Rand) error {
-	if m == nil {
-		return ErrStorageIsNil
+// Если rnd == nil, то используется стандартный генератор math/rand.
+func scanMetrics(rnd *rand.Rand) ([]metric.Metrics, error) {
+	buf := make(map[string]interface{})
+
+	rndVal := float64(rand.Int())
+	if rnd != nil {
+		rndVal = float64(rnd.Int())
 	}
 
-	if _, ok := m["PollCount"]; !ok {
-		m["PollCount"] = int64(0)
-	}
+	buf["RandomValue"] = rndVal
 
 	rtm := &runtime.MemStats{}
 
 	runtime.ReadMemStats(rtm)
 
-	m["Alloc"] = float64(rtm.Alloc)
-	m["BuckHashSys"] = float64(rtm.BuckHashSys)
-	m["Frees"] = float64(rtm.Frees)
-	m["GCCPUFraction"] = float64(rtm.GCCPUFraction)
-	m["GCSys"] = float64(rtm.GCSys)
-	m["HeapAlloc"] = float64(rtm.HeapAlloc)
-	m["HeapIdle"] = float64(rtm.HeapIdle)
-	m["HeapInuse"] = float64(rtm.HeapInuse)
-	m["HeapObjects"] = float64(rtm.HeapObjects)
-	m["HeapReleased"] = float64(rtm.HeapReleased)
-	m["HeapSys"] = float64(rtm.HeapSys)
-	m["LastGC"] = float64(rtm.LastGC)
-	m["Lookups"] = float64(rtm.Lookups)
-	m["MCacheInuse"] = float64(rtm.MCacheInuse)
-	m["MCacheSys"] = float64(rtm.MCacheSys)
-	m["MSpanInuse"] = float64(rtm.MSpanInuse)
-	m["MSpanSys"] = float64(rtm.MSpanSys)
-	m["Mallocs"] = float64(rtm.Mallocs)
-	m["NextGC"] = float64(rtm.NextGC)
-	m["NumForcedGC"] = float64(rtm.NumForcedGC)
-	m["NumGC"] = float64(rtm.NumGC)
-	m["OtherSys"] = float64(rtm.OtherSys)
-	m["PauseTotalNs"] = float64(rtm.PauseTotalNs)
-	m["StackInuse"] = float64(rtm.StackInuse)
-	m["StackSys"] = float64(rtm.StackSys)
-	m["Sys"] = float64(rtm.Sys)
-	m["TotalAlloc"] = float64(rtm.TotalAlloc)
+	buf["Alloc"] = float64(rtm.Alloc)
+	buf["BuckHashSys"] = float64(rtm.BuckHashSys)
+	buf["Frees"] = float64(rtm.Frees)
+	buf["GCCPUFraction"] = rtm.GCCPUFraction
+	buf["GCSys"] = float64(rtm.GCSys)
+	buf["HeapAlloc"] = float64(rtm.HeapAlloc)
+	buf["HeapIdle"] = float64(rtm.HeapIdle)
+	buf["HeapInuse"] = float64(rtm.HeapInuse)
+	buf["HeapObjects"] = float64(rtm.HeapObjects)
+	buf["HeapReleased"] = float64(rtm.HeapReleased)
+	buf["HeapSys"] = float64(rtm.HeapSys)
+	buf["LastGC"] = float64(rtm.LastGC)
+	buf["Lookups"] = float64(rtm.Lookups)
+	buf["MCacheInuse"] = float64(rtm.MCacheInuse)
+	buf["MCacheSys"] = float64(rtm.MCacheSys)
+	buf["MSpanInuse"] = float64(rtm.MSpanInuse)
+	buf["MSpanSys"] = float64(rtm.MSpanSys)
+	buf["Mallocs"] = float64(rtm.Mallocs)
+	buf["NextGC"] = float64(rtm.NextGC)
+	buf["NumForcedGC"] = float64(rtm.NumForcedGC)
+	buf["NumGC"] = float64(rtm.NumGC)
+	buf["OtherSys"] = float64(rtm.OtherSys)
+	buf["PauseTotalNs"] = float64(rtm.PauseTotalNs)
+	buf["StackInuse"] = float64(rtm.StackInuse)
+	buf["StackSys"] = float64(rtm.StackSys)
+	buf["Sys"] = float64(rtm.Sys)
+	buf["TotalAlloc"] = float64(rtm.TotalAlloc)
 
-	rndVal := float64(rand.Intn(10000000))
-	if rnd != nil {
-		rndVal = float64(rnd.Intn(10000000))
-	}
-	m["RandomValue"] = rndVal
-	m["PollCount"] = m["PollCount"].(int64) + 1
+	storage := make([]metric.Metrics, 0, len(buf)+1)
 
-	return nil
-}
+	for mName, mVal := range buf {
+		mtrc, err := metric.NewMetrics(mName, "", mVal)
+		if err != nil {
+			return nil, err
+		}
 
-func sendMetric(client *http.Client, sAddr string, mtrc *metric.Metrics) error {
-	if client == nil {
-		return ErrClientIsNil
-	}
-	if mtrc == nil {
-		return ErrMetricIsNil
+		storage = append(storage, *mtrc)
 	}
 
-	url := fmt.Sprintf("http://%s/update/", sAddr)
-
-	body, err := json.Marshal(mtrc)
-	if err != nil {
-		return err
-	}
-
-	buf := &bytes.Buffer{}
-	gz := gzip.NewWriter(buf)
-	if _, err = gz.Write(body); err != nil {
-		return err
-	}
-	gz.Close()
-
-	req, err := http.NewRequest(http.MethodPost, url, buf)
-	if err != nil {
-		return err
-	}
-
-	req.Header.Add("Content-Type", "application/json")
-	req.Header.Set("Content-Encoding", "gzip")
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return err
-	}
-
-	io.Copy(io.Discard, resp.Body)
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return errors.New(resp.Status)
-	}
-
-	return nil
+	return storage, nil
 }

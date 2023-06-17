@@ -1,6 +1,9 @@
 package handlers
 
 import (
+	"bytes"
+	"context"
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -10,17 +13,98 @@ import (
 	"testing"
 
 	"github.com/KryukovO/metricscollector/internal/metric"
-	"github.com/KryukovO/metricscollector/internal/storage/memstorage"
+	"github.com/KryukovO/metricscollector/internal/storage"
+	"github.com/KryukovO/metricscollector/internal/storage/repository/memstorage"
 	"github.com/labstack/echo"
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
+var (
+	ErrRecorderIsNil = errors.New("empty response recorder")
+	ErrURLIsEmpty    = errors.New("empty URL")
+)
+
+func newTestRepo(clear bool) (*memstorage.MemStorage, error) {
+	var (
+		retries          = []int{0}
+		counterVal int64 = 100
+		gaugeVal         = 12345.67
+	)
+
+	repo, err := memstorage.NewMemStorage(context.Background(), "", false, 0, retries, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if !clear {
+		err = repo.Update(
+			context.Background(),
+			&metric.Metrics{
+				ID:    "PollCount",
+				MType: metric.CounterMetric,
+				Delta: &counterVal,
+			},
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		err = repo.Update(
+			context.Background(),
+			&metric.Metrics{
+				ID:    "RandomValue",
+				MType: metric.GaugeMetric,
+				Value: &gaugeVal,
+			},
+		)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return repo, nil
+}
+
+func newEchoContext(
+	rec *httptest.ResponseRecorder, method, url string,
+	body io.Reader, paramNames []string,
+) (echo.Context, error) {
+	if rec == nil {
+		return nil, ErrRecorderIsNil
+	}
+
+	if url == "" {
+		return nil, ErrURLIsEmpty
+	}
+
+	e := echo.New()
+	req := httptest.NewRequest(method, url, body)
+
+	ctx := e.NewContext(req, rec)
+	ctx.SetPath(url)
+
+	if len(paramNames) > 0 {
+		ctx.SetParamNames(paramNames...)
+
+		values := strings.Split(strings.Trim(url, "/"), "/")
+		bound := int(math.Min(float64(len(values)), 1))
+		ctx.SetParamValues(values[bound:]...)
+	}
+
+	return ctx, nil
+}
+
 func TestUpdateHandler(t *testing.T) {
+	params := []string{"mtype", "mname", "value"}
+	timeout := 10
+
 	type args struct {
 		url    string
 		method string
 	}
+
 	tests := []struct {
 		name   string
 		args   args
@@ -109,23 +193,215 @@ func TestUpdateHandler(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			e := echo.New()
-			req := httptest.NewRequest(test.args.method, test.args.url, nil)
 			rec := httptest.NewRecorder()
+			ctx, err := newEchoContext(rec, test.args.method, test.args.url, nil, params)
+			require.NoError(t, err)
 
-			c := e.NewContext(req, rec)
-			c.SetPath(test.args.url)
-			c.SetParamNames("mtype", "mname", "value")
-			values := strings.Split(strings.Trim(test.args.url, "/"), "/")
-			bound := int(math.Min(float64(len(values)), 1))
-			c.SetParamValues(values[bound:]...)
-
-			m, err := memstorage.NewMemStorage("", false, 0)
+			repo, err := newTestRepo(true)
 			require.NoError(t, err)
 			s := StorageController{
-				storage: m,
+				storage: storage.NewMetricsStorage(repo, uint(timeout)),
+				l:       logrus.StandardLogger(),
 			}
-			s.updateHandler(c)
+			err = s.updateHandler(ctx)
+			require.NoError(t, err)
+
+			res := rec.Result()
+			defer res.Body.Close()
+
+			assert.Equal(t, test.status, res.StatusCode)
+		})
+	}
+}
+
+func TestUpdateJSONHandler(t *testing.T) {
+	url := "/update/"
+	timeout := 10
+
+	type want struct {
+		status      int
+		contentType string
+	}
+
+	tests := []struct {
+		name string
+		body []byte
+		want want
+	}{
+		{
+			name: "Correct gauge test #1",
+			body: []byte(`{"id":"Mallocs", "type":"gauge", "value":100.0001}`),
+			want: want{
+				status:      http.StatusOK,
+				contentType: "application/json; charset=UTF-8",
+			},
+		},
+		{
+			name: "Correct gauge test #2",
+			body: []byte(`{"id":"Mallocs", "type":"gauge", "value":100}`),
+			want: want{
+				status:      http.StatusOK,
+				contentType: "application/json; charset=UTF-8",
+			},
+		},
+		{
+			name: "Correct counter test",
+			body: []byte(`{"id":"PollCount", "type":"counter", "delta":1}`),
+			want: want{
+				status:      http.StatusOK,
+				contentType: "application/json; charset=UTF-8",
+			},
+		},
+		{
+			name: "Incorrect gauge value",
+			body: []byte(`{"id":"Mallocs", "type":"gauge", "value":"value"}`),
+			want: want{
+				status:      http.StatusBadRequest,
+				contentType: "",
+			},
+		},
+		{
+			name: "Incorrect counter value #1",
+			body: []byte(`{"id":"PollCount", "type":"counter", "delta":100.0001}`),
+			want: want{
+				status:      http.StatusBadRequest,
+				contentType: "",
+			},
+		},
+		{
+			name: "Incorrect counter value #2",
+			body: []byte(`{"id":"PollCount", "type":"counter", "delta":"value"}`),
+			want: want{
+				status:      http.StatusBadRequest,
+				contentType: "",
+			},
+		},
+		{
+			name: "Incorrect metric type",
+			body: []byte(`{"id":"PollCount", "type":"type", "delta":1}`),
+			want: want{
+				status:      http.StatusBadRequest,
+				contentType: "",
+			},
+		},
+		{
+			name: "Empty metric type",
+			body: []byte(`{"id":"PollCount", "type":"", "delta":1}`),
+			want: want{
+				status:      http.StatusBadRequest,
+				contentType: "",
+			},
+		},
+		{
+			name: "Empty metric name",
+			body: []byte(`{"id":"", "type":"counter", "delta":1}`),
+			want: want{
+				status:      http.StatusNotFound,
+				contentType: "",
+			},
+		},
+		{
+			name: "Empty metric value",
+			body: []byte(`{"id":"PollCount", "type":"counter"}`),
+			want: want{
+				status:      http.StatusBadRequest,
+				contentType: "",
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			rec := httptest.NewRecorder()
+			ctx, err := newEchoContext(rec, http.MethodPost, url, bytes.NewReader(test.body), nil)
+			require.NoError(t, err)
+
+			repo, err := newTestRepo(true)
+			require.NoError(t, err)
+			s := StorageController{
+				storage: storage.NewMetricsStorage(repo, uint(timeout)),
+				l:       logrus.StandardLogger(),
+			}
+			err = s.updateJSONHandler(ctx)
+			require.NoError(t, err)
+
+			res := rec.Result()
+			defer res.Body.Close()
+
+			assert.Equal(t, test.want.status, res.StatusCode)
+			assert.Equal(t, test.want.contentType, res.Header.Get("Content-Type"))
+		})
+	}
+}
+
+func TestUpdatesHandler(t *testing.T) {
+	url := "/updates/"
+	timeout := 10
+
+	tests := []struct {
+		name   string
+		body   []byte
+		status int
+	}{
+		{
+			name: "Correct body",
+			body: []byte(
+				`[{"id":"Mallocs", "type":"gauge", "value":100.0001}, 
+				{"id":"PollCount", "type":"counter", "delta":1}]`,
+			),
+			status: http.StatusOK,
+		},
+		{
+			name:   "Incorrect gauge value",
+			body:   []byte(`[{"id":"Mallocs", "type":"gauge", "value":"value"}]`),
+			status: http.StatusBadRequest,
+		},
+		{
+			name:   "Incorrect counter value #1",
+			body:   []byte(`[{"id":"PollCount", "type":"counter", "delta":100.0001}]`),
+			status: http.StatusBadRequest,
+		},
+		{
+			name:   "Incorrect counter value #2",
+			body:   []byte(`[{"id":"PollCount", "type":"counter", "delta":"value"}]`),
+			status: http.StatusBadRequest,
+		},
+		{
+			name:   "Incorrect metric type",
+			body:   []byte(`[{"id":"PollCount", "type":"type", "delta":1}]`),
+			status: http.StatusBadRequest,
+		},
+		{
+			name:   "Empty metric type",
+			body:   []byte(`[{"id":"PollCount", "type":"", "delta":1}]`),
+			status: http.StatusBadRequest,
+		},
+		{
+			name:   "Empty metric name",
+			body:   []byte(`[{"id":"", "type":"counter", "delta":1}]`),
+			status: http.StatusNotFound,
+		},
+		{
+			name:   "Empty metric value",
+			body:   []byte(`[{"id":"PollCount", "type":"counter"}]`),
+			status: http.StatusBadRequest,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			rec := httptest.NewRecorder()
+			ctx, err := newEchoContext(rec, http.MethodPost, url, bytes.NewReader(test.body), nil)
+			require.NoError(t, err)
+
+			repo, err := newTestRepo(true)
+			require.NoError(t, err)
+			s := StorageController{
+				storage: storage.NewMetricsStorage(repo, uint(timeout)),
+				l:       logrus.StandardLogger(),
+			}
+			err = s.updatesHandler(ctx)
+			require.NoError(t, err)
 
 			res := rec.Result()
 			defer res.Body.Close()
@@ -136,16 +412,19 @@ func TestUpdateHandler(t *testing.T) {
 }
 
 func TestGetValueHandler(t *testing.T) {
-	var counterVal int64 = 100
+	params := []string{"mtype", "mname"}
+	timeout := 10
 
 	type args struct {
 		url    string
 		method string
 	}
+
 	type want struct {
 		status      int
 		contentType string
 	}
+
 	tests := []struct {
 		name string
 		args args
@@ -185,31 +464,85 @@ func TestGetValueHandler(t *testing.T) {
 			},
 		},
 	}
+
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			e := echo.New()
-			req := httptest.NewRequest(test.args.method, test.args.url, nil)
 			rec := httptest.NewRecorder()
-
-			c := e.NewContext(req, rec)
-			c.SetPath(test.args.url)
-			c.SetParamNames("mtype", "mname")
-			values := strings.Split(strings.Trim(test.args.url, "/"), "/")
-			bound := int(math.Min(float64(len(values)), 1))
-			c.SetParamValues(values[bound:]...)
-
-			stor, err := memstorage.NewMemStorage("", false, 0)
+			ctx, err := newEchoContext(rec, test.args.method, test.args.url, nil, params)
 			require.NoError(t, err)
-			err = stor.Update(&metric.Metrics{
-				ID:    "PollCount",
-				MType: metric.CounterMetric,
-				Delta: &counterVal,
-			})
+
+			repo, err := newTestRepo(false)
 			require.NoError(t, err)
 			s := StorageController{
-				storage: stor,
+				storage: storage.NewMetricsStorage(repo, uint(timeout)),
+				l:       logrus.StandardLogger(),
 			}
-			s.getValueHandler(c)
+			err = s.getValueHandler(ctx)
+			require.NoError(t, err)
+
+			res := rec.Result()
+			defer res.Body.Close()
+
+			assert.Equal(t, test.want.status, res.StatusCode)
+			assert.Equal(t, test.want.contentType, res.Header.Get("Content-Type"))
+		})
+	}
+}
+
+func TestGetValueJSONHandler(t *testing.T) {
+	url := "/value/"
+	timeout := 10
+
+	type want struct {
+		status      int
+		contentType string
+	}
+
+	tests := []struct {
+		name string
+		body []byte
+		want want
+	}{
+		{
+			name: "Correct body",
+			body: []byte(`{"id":"PollCount", "type":"counter"}`),
+			want: want{
+				status:      http.StatusOK,
+				contentType: "application/json; charset=UTF-8",
+			},
+		},
+		{
+			name: "Metric with name does not exists",
+			body: []byte(`{"id":"Count", "type":"counter"}`),
+			want: want{
+				status:      http.StatusNotFound,
+				contentType: "",
+			},
+		},
+		{
+			name: "Metric type does not exists",
+			body: []byte(`{"id":"PollCount", "type":"count"}`),
+			want: want{
+				status:      http.StatusNotFound,
+				contentType: "",
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			rec := httptest.NewRecorder()
+			ctx, err := newEchoContext(rec, http.MethodPost, url, bytes.NewReader(test.body), nil)
+			require.NoError(t, err)
+
+			repo, err := newTestRepo(false)
+			require.NoError(t, err)
+			s := StorageController{
+				storage: storage.NewMetricsStorage(repo, uint(timeout)),
+				l:       logrus.StandardLogger(),
+			}
+			err = s.getValueJSONHandler(ctx)
+			require.NoError(t, err)
 
 			res := rec.Result()
 			defer res.Body.Close()
@@ -221,22 +554,20 @@ func TestGetValueHandler(t *testing.T) {
 }
 
 func TestGetAllHandler(t *testing.T) {
-	var counterVal int64 = 100
-	mtrc := &metric.Metrics{
-		ID:    "PollCount",
-		MType: metric.CounterMetric,
-		Delta: &counterVal,
-	}
+	timeout := 10
 
 	type args struct {
 		url    string
 		method string
 	}
+
 	type want struct {
 		status      int
 		contentType string
-		format      string
+		tableFormat string
+		dataFormat  string
 	}
+
 	tests := []struct {
 		name string
 		args args
@@ -251,31 +582,25 @@ func TestGetAllHandler(t *testing.T) {
 			want: want{
 				status:      http.StatusOK,
 				contentType: "text/html; charset=UTF-8",
-				format:      "<table><tr><th>Metric name</th><th>Metric type</th><th>Value</th></tr><tr><td>%s</td><td>%s</td><td>%v</td></tr></table>",
+				tableFormat: "<table><tr><th>Metric name</th><th>Metric type</th><th>Value</th></tr>%s</table>",
+				dataFormat:  "<tr><td>%s</td><td>%s</td><td>%v</td></tr>",
 			},
 		},
 	}
+
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			e := echo.New()
-			req := httptest.NewRequest(test.args.method, test.args.url, nil)
 			rec := httptest.NewRecorder()
-
-			c := e.NewContext(req, rec)
-			c.SetPath(test.args.url)
-			c.SetParamNames("mtype", "mname")
-			values := strings.Split(strings.Trim(test.args.url, "/"), "/")
-			bound := int(math.Min(float64(len(values)), 1))
-			c.SetParamValues(values[bound:]...)
-
-			stor, err := memstorage.NewMemStorage("", false, 0)
+			ctx, err := newEchoContext(rec, test.args.method, test.args.url, nil, nil)
 			require.NoError(t, err)
-			err = stor.Update(mtrc)
+
+			repo, err := newTestRepo(false)
 			require.NoError(t, err)
 			s := StorageController{
-				storage: stor,
+				storage: storage.NewMetricsStorage(repo, uint(timeout)),
+				l:       logrus.StandardLogger(),
 			}
-			err = s.getAllHandler(c)
+			err = s.getAllHandler(ctx)
 			require.NoError(t, err)
 
 			res := rec.Result()
@@ -284,7 +609,19 @@ func TestGetAllHandler(t *testing.T) {
 			rowRes, err := io.ReadAll(res.Body)
 			require.NoError(t, err)
 
-			rowWant := fmt.Sprintf(test.want.format, mtrc.ID, mtrc.MType, *mtrc.Delta)
+			var rowWant string
+			stor, err := repo.GetAll(context.Background())
+			require.NoError(t, err)
+
+			for _, mtrc := range stor {
+				if mtrc.Delta != nil {
+					rowWant += fmt.Sprintf(test.want.dataFormat, mtrc.ID, mtrc.MType, *mtrc.Delta)
+				} else if mtrc.Value != nil {
+					rowWant += fmt.Sprintf(test.want.dataFormat, mtrc.ID, mtrc.MType, *mtrc.Value)
+				}
+			}
+
+			rowWant = fmt.Sprintf(test.want.tableFormat, rowWant)
 
 			assert.Equal(t, test.want.status, res.StatusCode)
 			assert.Equal(t, test.want.contentType, res.Header.Get("Content-Type"))

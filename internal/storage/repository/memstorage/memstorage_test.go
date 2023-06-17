@@ -1,6 +1,7 @@
 package memstorage
 
 import (
+	"context"
 	"testing"
 
 	"github.com/KryukovO/metricscollector/internal/metric"
@@ -29,7 +30,8 @@ func TestGetAll(t *testing.T) {
 		},
 	}
 
-	v := s.GetAll()
+	v, err := s.GetAll(context.Background())
+	assert.NoError(t, err)
 	assert.Equal(t, s.storage, v)
 }
 
@@ -40,13 +42,15 @@ func TestGetValue(t *testing.T) {
 	)
 
 	type args struct {
-		mtype string
+		mType string
 		mname string
 	}
+
 	type want struct {
 		value *metric.Metrics
 		ok    bool
 	}
+
 	tests := []struct {
 		name string
 		args args
@@ -55,7 +59,7 @@ func TestGetValue(t *testing.T) {
 		{
 			name: "Existing gauge value",
 			args: args{
-				mtype: "gauge",
+				mType: "gauge",
 				mname: "RandomValue",
 			},
 			want: want{
@@ -70,7 +74,7 @@ func TestGetValue(t *testing.T) {
 		{
 			name: "Existing counter value",
 			args: args{
-				mtype: "counter",
+				mType: "counter",
 				mname: "PollCount",
 			},
 			want: want{
@@ -85,33 +89,33 @@ func TestGetValue(t *testing.T) {
 		{
 			name: "Metric with name does not exists",
 			args: args{
-				mtype: "gauge",
+				mType: "gauge",
 				mname: "Alloc",
 			},
 			want: want{
-				value: nil,
+				value: &metric.Metrics{},
 				ok:    false,
 			},
 		},
 		{
 			name: "Metric with name exists, but type incorrect",
 			args: args{
-				mtype: "gauge",
+				mType: "gauge",
 				mname: "PollCount",
 			},
 			want: want{
-				value: nil,
+				value: &metric.Metrics{},
 				ok:    false,
 			},
 		},
 		{
 			name: "Incorrect metric type",
 			args: args{
-				mtype: "metric",
+				mType: "metric",
 				mname: "PollCount",
 			},
 			want: want{
-				value: nil,
+				value: &metric.Metrics{},
 				ok:    false,
 			},
 		},
@@ -134,12 +138,11 @@ func TestGetValue(t *testing.T) {
 				},
 			}
 
-			v, ok := s.GetValue(test.args.mtype, test.args.mname)
+			v, err := s.GetValue(context.Background(), test.args.mType, test.args.mname)
+			assert.NoError(t, err)
 			assert.Equal(t, test.want.value, v)
-			assert.Equal(t, test.want.ok, ok)
 		})
 	}
-
 }
 
 func TestUpdate(t *testing.T) {
@@ -171,58 +174,6 @@ func TestUpdate(t *testing.T) {
 			},
 			wantErr: false,
 		},
-		{
-			name: "Incorrect gauge value #1",
-			arg: metric.Metrics{
-				ID:    "RandomValue",
-				MType: metric.GaugeMetric,
-			},
-			wantErr: true,
-		},
-		{
-			name: "Incorrect gauge value #2",
-			arg: metric.Metrics{
-				ID:    "RandomValue",
-				MType: metric.GaugeMetric,
-				Delta: &counterVal,
-			},
-			wantErr: true,
-		},
-		{
-			name: "Incorrect counter value #1",
-			arg: metric.Metrics{
-				ID:    "PollCount",
-				MType: metric.CounterMetric,
-			},
-			wantErr: true,
-		},
-		{
-			name: "Incorrect counter value #2",
-			arg: metric.Metrics{
-				ID:    "PollCount",
-				MType: metric.CounterMetric,
-				Value: &gaugeVal,
-			},
-			wantErr: true,
-		},
-		{
-			name: "Incorrect metric type #1",
-			arg: metric.Metrics{
-				ID:    "PollCount",
-				MType: "metric",
-				Delta: &counterVal,
-			},
-			wantErr: true,
-		},
-		{
-			name: "Incorrect metric type #2",
-			arg: metric.Metrics{
-				ID:    "RandomValue",
-				MType: "metric",
-				Value: &gaugeVal,
-			},
-			wantErr: true,
-		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -230,7 +181,7 @@ func TestUpdate(t *testing.T) {
 				storage: make([]metric.Metrics, 0),
 			}
 
-			err := s.Update(&test.arg)
+			err := s.Update(context.Background(), &test.arg)
 
 			if test.wantErr {
 				assert.Error(t, err)
@@ -240,10 +191,16 @@ func TestUpdate(t *testing.T) {
 				require.Equal(t, true, len(s.storage) == 1, "The update was successful, but the value was not saved")
 				v := s.storage[0]
 				if test.arg.Delta != nil {
-					assert.EqualValues(t, *test.arg.Delta, *v.Delta, "Saved value '%v' is not equal to expected '%v'", *v.Delta, *test.arg.Delta)
+					assert.EqualValues(
+						t, *test.arg.Delta, *v.Delta,
+						"Saved value '%v' is not equal to expected '%v'", *v.Delta, *test.arg.Delta,
+					)
 				}
 				if test.arg.Value != nil {
-					assert.EqualValues(t, *test.arg.Value, *v.Value, "Saved value '%v' is not equal to expected '%v'", *v.Value, *test.arg.Value)
+					assert.EqualValues(
+						t, *test.arg.Value, *v.Value,
+						"Saved value '%v' is not equal to expected '%v'", *v.Value, *test.arg.Value,
+					)
 				}
 			}
 		})

@@ -1,0 +1,45 @@
+issues:
+  exclude:
+    - "Error return value of `tx.Rollback` is not checked" # В этом проекте нет смысла проверять успешность отката транзакции
+
+linters:
+  enable-all: true
+  disable:
+    - nosnakecase # "deprecated". Заменено на revive(var-naming) 
+    - scopelint # "deprecated". Заменено на exportloopref
+    - varcheck # "deprecated". Заменено на unused
+    - exhaustivestruct # "deprecated". Заменено на exhaustruct
+    - deadcode # "deprecated". Заменено на unused
+    - structcheck # "deprecated". Заменено на unused
+    - golint # "deprecated". Заменено на revive
+    - ifshort # "deprecated"
+    - interfacer # "deprecated"
+    - maligned # "deprecated". Заменено на govet 'fieldalignment'
+    - gci # golangci-lint с ним не запускается
+    - depguard # Ограничения на пакеты не нужны
+    - testpackage # Все тесты пишем в рамках их пакетов
+    - exhaustruct # Почти все структуры, используемые в проекте, так или иначе инициализируются с неполным списком полей
+    - paralleltest # Распараллеливание тестирования не выполняем
+    - execinquery # Линтер не позволяет выполнять SQL-запросы, включающие 'RETURNING'
+
+    # Линтеры ниже полезны, но требуют времени на рефакторинг
+    - funlen # ограничение длины функций и методов
+    - varnamelen # ограничение длины имен
+    - wrapcheck # оборачивание ошибок
+
+linters-settings:
+  cyclop:
+    max-complexity: 15 # По умолчанию 10, но нужно будет время, чтобы отрефакторить некоторые функции и методы
+
+  gosec:
+    excludes:
+      - G404 # для проекта возможностей math/rand достаточно, и crypto/rand не нужен
+      
+  ireturn:
+    allow:
+      - anon
+      - error
+      - empty
+      - stdlib
+      - generic
+      - echo.Context
