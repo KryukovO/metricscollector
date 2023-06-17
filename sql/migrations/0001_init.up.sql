@@ -21,10 +21,11 @@ BEGIN
             PRIMARY KEY(id),
             UNIQUE(mname, mtype)
         );
-        CREATE INDEX IF NOT EXISTS metrics_mname_idx ON metrics USING hash(mname);
-        CREATE INDEX IF NOT EXISTS metrics_mtype_idx ON metrics USING hash(mtype);
     END IF;
+    --
+    CREATE INDEX IF NOT EXISTS metrics_mname_idx ON metrics USING hash(mname);
+    CREATE INDEX IF NOT EXISTS metrics_mtype_idx ON metrics USING hash(mtype);
 END $$;
 --
 --
-COMMIT;
+COMMIT TRANSACTION;
