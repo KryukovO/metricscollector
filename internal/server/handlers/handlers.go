@@ -9,22 +9,31 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-var ErrServerIsNil = errors.New("server instance is nil")
+var (
+	ErrServerIsNil  = errors.New("server instance is nil")
+	ErrStorageIsNil = errors.New("storage is nil")
+)
 
-func SetHandlers(e *echo.Echo, s storage.Storage, l *log.Logger) error {
+func SetHandlers(e *echo.Echo, s storage.Storage, key []byte, l *log.Logger) error {
 	if e == nil {
 		return ErrServerIsNil
 	}
 
-	if err := setStorageHandlers(e.Router(), s, l); err != nil {
+	if s == nil {
+		return ErrStorageIsNil
+	}
+
+	ctrl, err := NewStorageController(s, l)
+	if err != nil {
 		return err
 	}
 
-	mw := middleware.NewManager(l)
+	mw := middleware.NewManager(key, l)
 	e.Use(
 		mw.LoggingMiddleware,
 		mw.GZipMiddleware,
+		mw.HashMiddleware,
 	)
 
-	return nil
+	return MapStorageHandlers(e.Router(), ctrl)
 }

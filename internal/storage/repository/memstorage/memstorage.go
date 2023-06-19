@@ -61,7 +61,7 @@ func NewMemStorage(
 				case <-s.closeSaving:
 					err := s.save(context.Background())
 					if err != nil {
-						s.l.Infof("error when saving metrics to the file: %s", err)
+						s.l.Errorf("error when saving metrics to the file: %s", err)
 					}
 
 					ticker.Stop()
@@ -71,7 +71,7 @@ func NewMemStorage(
 				case <-ticker.C:
 					err := s.save(context.Background())
 					if err != nil {
-						s.l.Infof("error when saving metrics to the file: %s", err)
+						s.l.Errorf("error when saving metrics to the file: %s", err)
 					}
 				}
 			}
@@ -202,7 +202,7 @@ func (s *MemStorage) Update(ctx context.Context, mtrc *metric.Metrics) error {
 		if s.syncSave {
 			err := s.save(ctx)
 			if err != nil {
-				s.l.Infof("error when saving metrics to the file: %s", err)
+				s.l.Errorf("error when saving metrics to the file: %s", err)
 			}
 		}
 	}()

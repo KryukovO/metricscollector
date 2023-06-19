@@ -73,7 +73,7 @@ func (s *Server) Run() error {
 	e.HideBanner = true
 	e.HidePort = true
 
-	if err := handlers.SetHandlers(e, stor, s.l); err != nil {
+	if err := handlers.SetHandlers(e, stor, []byte(s.cfg.Key), s.l); err != nil {
 		return err
 	}
 

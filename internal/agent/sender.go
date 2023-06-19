@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -25,6 +26,7 @@ type Sender struct {
 	httpTimeout   time.Duration
 	batchSize     uint
 	retries       []int
+	key           string
 	l             *log.Logger
 }
 
@@ -50,6 +52,7 @@ func NewSender(cfg *config.Config, l *log.Logger) (*Sender, error) {
 		httpTimeout:   time.Duration(cfg.HTTPTimeout) * time.Second,
 		batchSize:     cfg.BatchSize,
 		retries:       retries,
+		key:           cfg.Key,
 		l:             lg,
 	}, nil
 }
@@ -87,9 +90,9 @@ func (snd *Sender) InitMetricSend(storage []metric.Metrics) error {
 		}
 
 		if err != nil {
-			snd.l.Infof("error sending metric values: %s", err.Error())
+			snd.l.Errorf("error sending metric values: %s", err.Error())
 		} else {
-			snd.l.Infof("metrics sent: %d", len(mtrcs))
+			snd.l.Debugf("metrics sent: %d", len(mtrcs))
 		}
 
 		return nil
@@ -146,6 +149,15 @@ func (snd *Sender) sendMetrics(ctx context.Context, client *http.Client, batch [
 
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Set("Content-Encoding", "gzip")
+
+	if snd.key != "" {
+		hash, err := utils.HashSHA256(body, []byte(snd.key))
+		if err != nil {
+			return err
+		}
+
+		req.Header.Set("HashSHA256", hex.EncodeToString(hash))
+	}
 
 	resp, err := client.Do(req)
 	if err != nil {
