@@ -10,16 +10,14 @@ import (
 func Wait(ctx context.Context, d time.Duration) error {
 	timer := time.NewTimer(d)
 
-	for {
-		select {
-		case <-timer.C:
-			timer.Stop()
+	select {
+	case <-timer.C:
+		timer.Stop()
 
-			return nil
+		return nil
 
-		case <-ctx.Done():
-			return ctx.Err()
-		}
+	case <-ctx.Done():
+		return ctx.Err()
 	}
 }
 

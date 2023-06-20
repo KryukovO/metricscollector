@@ -236,6 +236,8 @@ func (s *MemStorage) Close() error {
 
 	if s.closeSaving != nil {
 		s.closeSaving <- struct{}{}
+		close(s.closeSaving)
+
 		s.closeSaving = nil
 	}
 
