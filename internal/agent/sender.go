@@ -19,10 +19,12 @@ import (
 	"github.com/KryukovO/metricscollector/internal/metric"
 	"github.com/KryukovO/metricscollector/internal/utils"
 	log "github.com/sirupsen/logrus"
+	"golang.org/x/sync/errgroup"
 )
 
 type Sender struct {
 	serverAddress string
+	rateLimit     uint
 	httpTimeout   time.Duration
 	batchSize     uint
 	retries       []int
@@ -49,6 +51,7 @@ func NewSender(cfg *config.Config, l *log.Logger) (*Sender, error) {
 
 	return &Sender{
 		serverAddress: cfg.ServerAddress,
+		rateLimit:     cfg.RateLimit,
 		httpTimeout:   time.Duration(cfg.HTTPTimeout) * time.Second,
 		batchSize:     cfg.BatchSize,
 		retries:       retries,
@@ -57,24 +60,72 @@ func NewSender(cfg *config.Config, l *log.Logger) (*Sender, error) {
 	}, nil
 }
 
-func (snd *Sender) InitMetricSend(storage []metric.Metrics) error {
+func (snd *Sender) Send(storage []metric.Metrics) error {
 	if storage == nil {
 		return ErrStorageIsNil
 	}
 
-	mtrcs := make([]metric.Metrics, 0, snd.batchSize)
+	done := make(chan struct{})
+	defer close(done)
 
-	sendBatch := func(mtrcs []metric.Metrics) error {
-		var (
-			err    error
-			client http.Client
-		)
+	tasks := snd.generateSendTasks(done, storage)
 
+	g := new(errgroup.Group)
+
+	for w := 1; w <= int(snd.rateLimit); w++ {
+		id := w
+
+		g.Go(func() error {
+			return snd.sendTaskWorker(id, tasks)
+		})
+	}
+
+	return g.Wait()
+}
+
+func (snd *Sender) generateSendTasks(done <-chan struct{}, storage []metric.Metrics) chan []metric.Metrics {
+	out := make(chan []metric.Metrics, snd.rateLimit)
+
+	go func() {
+		defer close(out)
+
+		batch := make([]metric.Metrics, 0, snd.batchSize)
+
+		for _, mtrc := range storage {
+			select {
+			case <-done:
+				return
+			default:
+				batch = append(batch, mtrc)
+
+				if len(batch) == int(snd.batchSize) {
+					out <- batch
+
+					batch = make([]metric.Metrics, 0, snd.batchSize)
+				}
+			}
+		}
+
+		if len(batch) != 0 {
+			out <- batch
+		}
+	}()
+
+	return out
+}
+
+func (snd *Sender) sendTaskWorker(id int, tasks <-chan []metric.Metrics) error {
+	var (
+		err    error
+		client http.Client
+	)
+
+	for batch := range tasks {
 		send := func() error {
 			ctx, cancel := context.WithTimeout(context.Background(), snd.httpTimeout)
 			defer cancel()
 
-			return snd.sendMetrics(ctx, &client, mtrcs)
+			return snd.sendMetrics(ctx, &client, batch)
 		}
 
 		for _, t := range snd.retries {
@@ -90,31 +141,9 @@ func (snd *Sender) InitMetricSend(storage []metric.Metrics) error {
 		}
 
 		if err != nil {
-			snd.l.Errorf("error sending metric values: %s", err.Error())
+			snd.l.Errorf("[worker %d] error sending metric values: %s", id, err.Error())
 		} else {
-			snd.l.Debugf("metrics sent: %d", len(mtrcs))
-		}
-
-		return nil
-	}
-
-	for _, mtrc := range storage {
-		mtrcs = append(mtrcs, mtrc)
-
-		if len(mtrcs) == int(snd.batchSize) {
-			err := sendBatch(mtrcs)
-			if err != nil {
-				return err
-			}
-
-			mtrcs = make([]metric.Metrics, 0, snd.batchSize)
-		}
-	}
-
-	if len(mtrcs) != 0 {
-		err := sendBatch(mtrcs)
-		if err != nil {
-			return err
+			snd.l.Debugf("[worker %d] metrics sent: %d", id, len(batch))
 		}
 	}
 

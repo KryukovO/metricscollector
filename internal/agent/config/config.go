@@ -5,6 +5,7 @@ type Config struct {
 	ReportInterval uint   `env:"REPORT_INTERVAL"` // Интервал отправки метрик в секундах
 	ServerAddress  string `env:"ADDRESS"`         // Адрес эндпоинта сервера (host:port)
 	Key            string `env:"KEY"`             // Ключ аутентификации
+	RateLimit      uint   `env:"RATE_LIMIT"`      // Количество одновременно исходящих запросов на сервер
 
 	HTTPTimeout uint   // Таймаут соединения с сервером
 	BatchSize   uint   // Количество посылаемых за раз метрик

@@ -51,28 +51,25 @@ func (a *Agent) Run() error {
 	rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
 
 	var (
-		scanCount  int64
-		storage    []metric.Metrics
-		lastReport time.Time
-		lastScan   time.Time
-		err        error
+		scanCount int64
+		storage   []metric.Metrics
+		err       error
 	)
 
+	scanTicker := time.NewTicker(time.Duration(a.pollInterval) * time.Second)
+	sendTicker := time.NewTicker(time.Duration(a.reportInterval) * time.Second)
+
 	for {
-		// сканируем метрики, если прошло pollInterval секунд с последнего сканирования
-		if time.Since(lastScan) > time.Duration(a.pollInterval)*time.Second {
+		select {
+		case <-scanTicker.C:
 			storage, err = scanMetrics(rnd)
 			if err != nil {
 				return err
 			}
 
-			lastScan = time.Now()
 			scanCount++
-		}
 
-		// отправляем метрики на сервер, если прошло reportInterval секунд с последней отправки
-		// после отправки сбрасываем счётчик сканирований
-		if time.Since(lastReport) > time.Duration(a.reportInterval)*time.Second {
+		case <-sendTicker.C:
 			pollCount, err := metric.NewMetrics("PollCount", "", scanCount)
 			if err != nil {
 				return err
@@ -80,17 +77,13 @@ func (a *Agent) Run() error {
 
 			storage = append(storage, *pollCount)
 
-			err = a.sender.InitMetricSend(storage)
+			err = a.sender.Send(storage)
 			if err != nil {
 				return err
 			}
 
-			lastReport = time.Now()
 			scanCount = 0
 		}
-
-		// выполняем проверку необходимости сканирования/отправки раз в секунду
-		time.Sleep(time.Second)
 	}
 }
 

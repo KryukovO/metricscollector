@@ -15,9 +15,10 @@ const (
 	reportInterval = 10
 	pollInterval   = 2
 	key            = ""
+	rateLimit      = 2
 
 	httpTimeout = 5
-	batchSize   = 20
+	batchSize   = 10
 	retries     = "1,3,5"
 )
 
@@ -28,10 +29,11 @@ func main() {
 	flag.UintVar(&cfg.ReportInterval, "r", reportInterval, "Metric reporting frequency in second")
 	flag.UintVar(&cfg.PollInterval, "p", pollInterval, "Metric polling frequency in seconds")
 	flag.StringVar(&cfg.Key, "k", key, "Server key")
+	flag.UintVar(&cfg.RateLimit, "l", rateLimit, "Number of concurrent requests")
 
-	flag.UintVar(&cfg.HTTPTimeout, "timeout", httpTimeout, "Server connect timeout")
+	flag.UintVar(&cfg.HTTPTimeout, "timeout", httpTimeout, "Server connection timeout")
 	flag.UintVar(&cfg.BatchSize, "batch", batchSize, "Metrics batch size")
-	flag.StringVar(&cfg.Retries, "retries", retries, "Server connect retry intervals")
+	flag.StringVar(&cfg.Retries, "retries", retries, "Server connection retry intervals")
 
 	flag.Parse()
 

@@ -8,11 +8,15 @@ import (
 )
 
 func Wait(ctx context.Context, d time.Duration) error {
-	timer := time.NewTimer(d)
+	if d == 0 {
+		return ctx.Err()
+	}
+
+	ticker := time.NewTicker(d)
 
 	select {
-	case <-timer.C:
-		timer.Stop()
+	case <-ticker.C:
+		ticker.Stop()
 
 		return nil
 
