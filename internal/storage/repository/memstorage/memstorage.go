@@ -21,7 +21,7 @@ type MemStorage struct {
 
 	fileStoragePath string        // путь до файла, в который сохраняются метрики
 	syncSave        bool          // признак синхронной записи в файл
-	closeSaving     chan struct{} // канал, принимающий сообщение о необходимости прекратить сохранения в файл
+	closeCh         chan struct{} // канал, принимающий сообщение о необходимости прекратить сохранения в файл
 	retries         []int
 	mtx             sync.RWMutex
 	l               *log.Logger
@@ -52,15 +52,14 @@ func NewMemStorage(
 	}
 
 	if file != "" && storeInterval > 0 {
-		s.closeSaving = make(chan struct{})
+		s.closeCh = make(chan struct{})
 		ticker := time.NewTicker(time.Duration(storeInterval) * time.Second)
 
 		go func() {
 			for {
 				select {
-				case <-s.closeSaving:
-					err := s.save(context.Background())
-					if err != nil {
+				case <-s.closeCh:
+					if err := s.save(context.Background()); err != nil {
 						s.l.Errorf("error when saving metrics to the file: %s", err)
 					}
 
@@ -69,8 +68,7 @@ func NewMemStorage(
 					return
 
 				case <-ticker.C:
-					err := s.save(context.Background())
-					if err != nil {
+					if err := s.save(context.Background()); err != nil {
 						s.l.Errorf("error when saving metrics to the file: %s", err)
 					}
 				}
@@ -234,11 +232,14 @@ func (s *MemStorage) Close() error {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 
-	if s.closeSaving != nil {
-		s.closeSaving <- struct{}{}
-		close(s.closeSaving)
-
-		s.closeSaving = nil
+	if s.closeCh != nil {
+		select {
+		case <-s.closeCh:
+			// s.closeCh уже закрыт
+		default:
+			s.closeCh <- struct{}{}
+			close(s.closeCh)
+		}
 	}
 
 	return nil
