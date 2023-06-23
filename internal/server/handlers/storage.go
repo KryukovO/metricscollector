@@ -60,16 +60,18 @@ func MapStorageHandlers(router *echo.Router, c *StorageController) error {
 }
 
 func (c *StorageController) updateHandler(e echo.Context) error {
+	uuid := e.Get("uuid")
+
 	mType := e.Param("mtype")
 	if mType == "" {
-		c.l.Debug(metric.ErrWrongMetricType)
+		c.l.Debugf("[%s] %s", uuid, metric.ErrWrongMetricType)
 
 		return e.NoContent(http.StatusBadRequest)
 	}
 
 	mName := e.Param("mname")
 	if mName == "" {
-		c.l.Debug(metric.ErrWrongMetricName)
+		c.l.Debugf("[%s] %s", uuid, metric.ErrWrongMetricName)
 
 		return e.NoContent(http.StatusNotFound)
 	}
@@ -86,7 +88,7 @@ func (c *StorageController) updateHandler(e echo.Context) error {
 	} else {
 		gaugeVal, err := strconv.ParseFloat(value, 64)
 		if err != nil {
-			c.l.Debug(metric.ErrWrongMetricValue.Error())
+			c.l.Debugf("[%s] %s", uuid, metric.ErrWrongMetricValue.Error())
 
 			return e.NoContent(http.StatusBadRequest)
 		}
@@ -95,38 +97,38 @@ func (c *StorageController) updateHandler(e echo.Context) error {
 
 	mtrc, err := metric.NewMetrics(mName, mType, val)
 	if errors.Is(err, metric.ErrWrongMetricName) {
-		c.l.Debug(err.Error())
+		c.l.Debugf("[%s] %s", uuid, err.Error())
 
 		return e.NoContent(http.StatusNotFound)
 	}
 
 	if errors.Is(err, metric.ErrWrongMetricType) || errors.Is(err, metric.ErrWrongMetricValue) {
-		c.l.Debug(err.Error())
+		c.l.Debugf("[%s] %s", uuid, err.Error())
 
 		return e.NoContent(http.StatusBadRequest)
 	}
 
 	if err != nil {
-		c.l.Errorf("something went wrong: %s", err.Error())
+		c.l.Errorf("[%s] something went wrong: %s", uuid, err.Error())
 
 		return e.NoContent(http.StatusInternalServerError)
 	}
 
 	err = c.storage.Update(e.Request().Context(), mtrc)
 	if errors.Is(err, metric.ErrWrongMetricName) {
-		c.l.Debug(err.Error())
+		c.l.Debugf("[%s] %s", uuid, err.Error())
 
 		return e.NoContent(http.StatusNotFound)
 	}
 
 	if errors.Is(err, metric.ErrWrongMetricType) || errors.Is(err, metric.ErrWrongMetricValue) {
-		c.l.Debug(err.Error())
+		c.l.Debugf("[%s] %s", uuid, err.Error())
 
 		return e.NoContent(http.StatusBadRequest)
 	}
 
 	if err != nil {
-		c.l.Errorf("something went wrong: %s", err.Error())
+		c.l.Errorf("[%s] something went wrong: %s", uuid, err.Error())
 
 		return e.NoContent(http.StatusInternalServerError)
 	}
@@ -135,9 +137,11 @@ func (c *StorageController) updateHandler(e echo.Context) error {
 }
 
 func (c *StorageController) updateJSONHandler(e echo.Context) error {
+	uuid := e.Get("uuid")
+
 	body, err := io.ReadAll(e.Request().Body)
 	if err != nil {
-		c.l.Errorf("something went wrong: %s", err.Error())
+		c.l.Errorf("[%s] something went wrong: %s", uuid, err.Error())
 
 		return e.NoContent(http.StatusInternalServerError)
 	}
@@ -148,31 +152,31 @@ func (c *StorageController) updateJSONHandler(e echo.Context) error {
 	var jsonErr *json.UnmarshalTypeError
 	if err != nil {
 		if errors.As(err, &jsonErr) {
-			c.l.Errorf("something went wrong: %s", err.Error())
+			c.l.Errorf("[%s] something went wrong: %s", uuid, err.Error())
 
 			return e.NoContent(http.StatusBadRequest)
 		}
 
-		c.l.Errorf("something went wrong: %s", err.Error())
+		c.l.Errorf("[%s] something went wrong: %s", uuid, err.Error())
 
 		return e.NoContent(http.StatusInternalServerError)
 	}
 
 	err = c.storage.Update(e.Request().Context(), &mtrc)
 	if errors.Is(err, metric.ErrWrongMetricName) {
-		c.l.Debug(err.Error())
+		c.l.Debugf("[%s] %s", uuid, err.Error())
 
 		return e.NoContent(http.StatusNotFound)
 	}
 
 	if errors.Is(err, metric.ErrWrongMetricType) || errors.Is(err, metric.ErrWrongMetricValue) {
-		c.l.Debug(err.Error())
+		c.l.Debugf("[%s] %s", uuid, err.Error())
 
 		return e.NoContent(http.StatusBadRequest)
 	}
 
 	if err != nil {
-		c.l.Errorf("something went wrong: %s", err.Error())
+		c.l.Errorf("[%s] something went wrong: %s", uuid, err.Error())
 
 		return e.NoContent(http.StatusInternalServerError)
 	}
@@ -181,9 +185,11 @@ func (c *StorageController) updateJSONHandler(e echo.Context) error {
 }
 
 func (c *StorageController) updatesHandler(e echo.Context) error {
+	uuid := e.Get("uuid")
+
 	body, err := io.ReadAll(e.Request().Body)
 	if err != nil {
-		c.l.Errorf("something went wrong: %s", err.Error())
+		c.l.Errorf("[%s] something went wrong: %s", uuid, err.Error())
 
 		return e.NoContent(http.StatusInternalServerError)
 	}
@@ -194,31 +200,31 @@ func (c *StorageController) updatesHandler(e echo.Context) error {
 	var jsonErr *json.UnmarshalTypeError
 	if err != nil {
 		if errors.As(err, &jsonErr) {
-			c.l.Errorf("something went wrong: %s", err.Error())
+			c.l.Errorf("[%s] something went wrong: %s", uuid, err.Error())
 
 			return e.NoContent(http.StatusBadRequest)
 		}
 
-		c.l.Errorf("something went wrong: %s", err.Error())
+		c.l.Errorf("[%s] something went wrong: %s", uuid, err.Error())
 
 		return e.NoContent(http.StatusInternalServerError)
 	}
 
 	err = c.storage.UpdateMany(e.Request().Context(), mtrcs)
 	if errors.Is(err, metric.ErrWrongMetricName) {
-		c.l.Debug(err.Error())
+		c.l.Debugf("[%s] %s", uuid, err.Error())
 
 		return e.NoContent(http.StatusNotFound)
 	}
 
 	if errors.Is(err, metric.ErrWrongMetricType) || errors.Is(err, metric.ErrWrongMetricValue) {
-		c.l.Debug(err.Error())
+		c.l.Debugf("[%s] %s", uuid, err.Error())
 
 		return e.NoContent(http.StatusBadRequest)
 	}
 
 	if err != nil {
-		c.l.Errorf("something went wrong: %s", err.Error())
+		c.l.Errorf("[%s] something went wrong: %s", uuid, err.Error())
 
 		return e.NoContent(http.StatusInternalServerError)
 	}
@@ -227,13 +233,15 @@ func (c *StorageController) updatesHandler(e echo.Context) error {
 }
 
 func (c *StorageController) getValueHandler(e echo.Context) error {
+	uuid := e.Get("uuid")
+
 	v, err := c.storage.GetValue(e.Request().Context(), e.Param("mtype"), e.Param("mname"))
 	if errors.Is(err, metric.ErrWrongMetricType) {
 		return e.NoContent(http.StatusNotFound)
 	}
 
 	if err != nil {
-		c.l.Errorf("something went wrong: %s", err.Error())
+		c.l.Errorf("[%s] something went wrong: %s", uuid, err.Error())
 
 		return e.NoContent(http.StatusInternalServerError)
 	}
@@ -250,9 +258,11 @@ func (c *StorageController) getValueHandler(e echo.Context) error {
 }
 
 func (c *StorageController) getValueJSONHandler(e echo.Context) error {
+	uuid := e.Get("uuid")
+
 	body, err := io.ReadAll(e.Request().Body)
 	if err != nil {
-		c.l.Errorf("something went wrong: %s", err.Error())
+		c.l.Errorf("[%s] something went wrong: %s", uuid, err.Error())
 
 		return e.NoContent(http.StatusInternalServerError)
 	}
@@ -261,7 +271,7 @@ func (c *StorageController) getValueJSONHandler(e echo.Context) error {
 
 	err = json.Unmarshal(body, &mtrc)
 	if err != nil {
-		c.l.Errorf("something went wrong: %s", err.Error())
+		c.l.Errorf("[%s] something went wrong: %s", uuid, err.Error())
 
 		return e.NoContent(http.StatusInternalServerError)
 	}
@@ -272,7 +282,7 @@ func (c *StorageController) getValueJSONHandler(e echo.Context) error {
 	}
 
 	if err != nil {
-		c.l.Errorf("something went wrong: %s", err.Error())
+		c.l.Errorf("[%s] something went wrong: %s", uuid, err.Error())
 
 		return e.NoContent(http.StatusInternalServerError)
 	}
@@ -285,9 +295,11 @@ func (c *StorageController) getValueJSONHandler(e echo.Context) error {
 }
 
 func (c *StorageController) getAllHandler(e echo.Context) error {
+	uuid := e.Get("uuid")
+
 	values, err := c.storage.GetAll(e.Request().Context())
 	if err != nil {
-		c.l.Errorf("something went wrong: %s", err.Error())
+		c.l.Errorf("[%s] something went wrong: %s", uuid, err.Error())
 
 		return e.NoContent(http.StatusInternalServerError)
 	}

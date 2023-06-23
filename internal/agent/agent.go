@@ -5,10 +5,13 @@ import (
 	"fmt"
 	"math/rand"
 	"runtime"
+	"sync"
 	"time"
 
 	"github.com/KryukovO/metricscollector/internal/agent/config"
 	"github.com/KryukovO/metricscollector/internal/metric"
+	"github.com/shirou/gopsutil/cpu"
+	"github.com/shirou/gopsutil/mem"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -53,6 +56,7 @@ func (a *Agent) Run() error {
 	var (
 		scanCount int64
 		storage   []metric.Metrics
+		mtx       sync.Mutex
 		err       error
 	)
 
@@ -62,27 +66,44 @@ func (a *Agent) Run() error {
 	for {
 		select {
 		case <-scanTicker.C:
+			mtx.Lock()
+
 			storage, err = scanMetrics(rnd)
 			if err != nil {
 				return err
 			}
 
+			psMetrics, err := scanPSUtilMetrics()
+			if err != nil {
+				return err
+			}
+
+			storage = append(storage, psMetrics...)
+
 			scanCount++
 
+			mtx.Unlock()
+
 		case <-sendTicker.C:
+			mtx.Lock()
+
 			pollCount, err := metric.NewMetrics("PollCount", "", scanCount)
 			if err != nil {
 				return err
 			}
 
 			storage = append(storage, *pollCount)
+			scanCount = 0
+			sndStorage := make([]metric.Metrics, len(storage))
 
-			err = a.sender.Send(storage)
+			copy(sndStorage, storage)
+
+			mtx.Unlock()
+
+			err = a.sender.Send(sndStorage)
 			if err != nil {
 				return err
 			}
-
-			scanCount = 0
 		}
 	}
 }
@@ -133,7 +154,41 @@ func scanMetrics(rnd *rand.Rand) ([]metric.Metrics, error) {
 	buf["Sys"] = float64(rtm.Sys)
 	buf["TotalAlloc"] = float64(rtm.TotalAlloc)
 
-	storage := make([]metric.Metrics, 0, len(buf)+1)
+	storage := make([]metric.Metrics, 0, len(buf))
+
+	for mName, mVal := range buf {
+		mtrc, err := metric.NewMetrics(mName, "", mVal)
+		if err != nil {
+			return nil, err
+		}
+
+		storage = append(storage, *mtrc)
+	}
+
+	return storage, nil
+}
+
+func scanPSUtilMetrics() ([]metric.Metrics, error) {
+	buf := make(map[string]interface{})
+
+	vmStat, err := mem.VirtualMemory()
+	if err != nil {
+		return nil, err
+	}
+
+	buf["TotalMemory"] = float64(vmStat.Total)
+	buf["FreeMemory"] = float64(vmStat.Free)
+
+	cpuStat, err := cpu.Times(true)
+	if err != nil {
+		return nil, err
+	}
+
+	for i, ts := range cpuStat {
+		buf[fmt.Sprintf("CPUutilization%d", i)] = ts.Idle
+	}
+
+	storage := make([]metric.Metrics, 0, len(buf))
 
 	for mName, mVal := range buf {
 		mtrc, err := metric.NewMetrics(mName, "", mVal)
