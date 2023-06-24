@@ -60,30 +60,26 @@ func NewSender(cfg *config.Config, l *log.Logger) (*Sender, error) {
 	}, nil
 }
 
-func (snd *Sender) Send(storage []metric.Metrics) error {
+func (snd *Sender) Send(ctx context.Context, storage []metric.Metrics) error {
 	if storage == nil {
 		return ErrStorageIsNil
 	}
 
-	done := make(chan struct{})
-	defer close(done)
-
-	tasks := snd.generateSendTasks(done, storage)
-
-	g := new(errgroup.Group)
+	g, ctx := errgroup.WithContext(ctx)
+	tasks := snd.generateSendTasks(ctx, storage)
 
 	for w := 1; w <= int(snd.rateLimit); w++ {
 		id := w
 
 		g.Go(func() error {
-			return snd.sendTaskWorker(id, tasks)
+			return snd.sendTaskWorker(ctx, id, tasks)
 		})
 	}
 
 	return g.Wait()
 }
 
-func (snd *Sender) generateSendTasks(done <-chan struct{}, storage []metric.Metrics) chan []metric.Metrics {
+func (snd *Sender) generateSendTasks(ctx context.Context, storage []metric.Metrics) chan []metric.Metrics {
 	out := make(chan []metric.Metrics, snd.rateLimit)
 
 	go func() {
@@ -93,7 +89,7 @@ func (snd *Sender) generateSendTasks(done <-chan struct{}, storage []metric.Metr
 
 		for _, mtrc := range storage {
 			select {
-			case <-done:
+			case <-ctx.Done():
 				return
 			default:
 				batch = append(batch, mtrc)
@@ -114,36 +110,45 @@ func (snd *Sender) generateSendTasks(done <-chan struct{}, storage []metric.Metr
 	return out
 }
 
-func (snd *Sender) sendTaskWorker(id int, tasks <-chan []metric.Metrics) error {
+func (snd *Sender) sendTaskWorker(ctx context.Context, id int, tasks <-chan []metric.Metrics) error {
 	var (
 		err    error
 		client http.Client
 	)
 
 	for batch := range tasks {
-		send := func() error {
-			ctx, cancel := context.WithTimeout(context.Background(), snd.httpTimeout)
-			defer cancel()
+		select {
+		case <-ctx.Done():
+			return nil
+		default:
+			send := func() error {
+				ctx, cancel := context.WithTimeout(ctx, snd.httpTimeout)
+				defer cancel()
 
-			return snd.sendMetrics(ctx, &client, batch)
-		}
+				return snd.sendMetrics(ctx, &client, batch)
+			}
 
-		for _, t := range snd.retries {
-			err = utils.Wait(context.Background(), time.Duration(t)*time.Second)
+			for _, t := range snd.retries {
+				err = utils.Wait(ctx, time.Duration(t)*time.Second)
+				if err != nil {
+					break
+				}
+
+				err = send()
+				if err == nil || !errors.Is(err, syscall.ECONNREFUSED) {
+					break
+				}
+			}
+
 			if err != nil {
-				return err
-			}
+				if errors.Is(err, ErrClientIsNil) {
+					return err
+				}
 
-			err = send()
-			if err == nil || !errors.Is(err, syscall.ECONNREFUSED) {
-				break
+				snd.l.Errorf("[worker %d] error sending metric values: %s", id, err.Error())
+			} else {
+				snd.l.Debugf("[worker %d] metrics sent: %d", id, len(batch))
 			}
-		}
-
-		if err != nil {
-			snd.l.Errorf("[worker %d] error sending metric values: %s", id, err.Error())
-		} else {
-			snd.l.Debugf("[worker %d] metrics sent: %d", id, len(batch))
 		}
 	}
 

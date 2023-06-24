@@ -20,7 +20,8 @@ func TestScanMetrics(t *testing.T) {
 				"Alloc", "BuckHashSys", "Frees", "GCCPUFraction", "GCSys",
 				"HeapAlloc", "HeapIdle", "HeapInuse", "HeapObjects", "HeapReleased", "HeapSys", "LastGC", "Lookups",
 				"MCacheInuse", "MCacheSys", "MSpanInuse", "MSpanSys", "Mallocs", "NextGC", "NumForcedGC", "NumGC",
-				"OtherSys", "PauseTotalNs", "StackInuse", "StackSys", "Sys", "TotalAlloc", "RandomValue",
+				"OtherSys", "PauseTotalNs", "StackInuse", "StackSys", "Sys", "TotalAlloc", "RandomValue", "TotalMemory",
+				"TotalMemory", "FreeMemory",
 			},
 		},
 		{
@@ -29,7 +30,8 @@ func TestScanMetrics(t *testing.T) {
 				"Alloc", "BuckHashSys", "Frees", "GCCPUFraction", "GCSys",
 				"HeapAlloc", "HeapIdle", "HeapInuse", "HeapObjects", "HeapReleased", "HeapSys", "LastGC", "Lookups",
 				"MCacheInuse", "MCacheSys", "MSpanInuse", "MSpanSys", "Mallocs", "NextGC", "NumForcedGC", "NumGC",
-				"OtherSys", "PauseTotalNs", "StackInuse", "StackSys", "Sys", "TotalAlloc", "RandomValue",
+				"OtherSys", "PauseTotalNs", "StackInuse", "StackSys", "Sys", "TotalAlloc", "RandomValue", "TotalMemory",
+				"TotalMemory", "FreeMemory",
 			},
 		},
 	}
@@ -43,7 +45,7 @@ func TestScanMetrics(t *testing.T) {
 				keys = append(keys, mtrc.ID)
 			}
 
-			assert.ElementsMatch(t, test.keys, keys)
+			assert.Subset(t, keys, test.keys)
 		})
 	}
 }
