@@ -21,9 +21,9 @@ const (
 	dsn             = ""
 	key             = ""
 
-	storageTimeout = 5
-	retries        = "1,3,5"
-	migrations     = "sql/migrations"
+	storeTimeout = 5
+	retries      = "1,3,5"
+	migrations   = "sql/migrations"
 )
 
 func main() {
@@ -36,7 +36,7 @@ func main() {
 	flag.StringVar(&cfg.DSN, "d", dsn, "Data source name")
 	flag.StringVar(&cfg.Key, "k", key, "Server key")
 
-	flag.UintVar(&cfg.StorageTimeout, "timeout", storageTimeout, "Storage connection timeout")
+	flag.UintVar(&cfg.StoreTimeout, "timeout", storeTimeout, "Storage connection timeout")
 	flag.StringVar(&cfg.Retries, "retries", retries, "Server connect retry intervals")
 	flag.StringVar(&cfg.Migrations, "migrations", migrations, "Directory of database migration files")
 

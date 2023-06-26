@@ -51,7 +51,7 @@ func (s *Server) Run() error {
 		retries = append(retries, interval)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(s.cfg.StorageTimeout)*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(s.cfg.StoreTimeout)*time.Second)
 	defer cancel()
 
 	if s.cfg.DSN != "" {
@@ -64,7 +64,7 @@ func (s *Server) Run() error {
 		return err
 	}
 
-	stor := storage.NewMetricsStorage(repo, s.cfg.StorageTimeout)
+	stor := storage.NewMetricsStorage(repo, s.cfg.StoreTimeout)
 	defer stor.Close()
 
 	// Инициализация сервера

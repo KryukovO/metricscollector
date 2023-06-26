@@ -8,9 +8,9 @@ type Config struct {
 	DSN             string `env:"DATABASE_DSN"`      // Адрес подключения к БД
 	Key             string `env:"KEY"`               // Ключ аутентификации
 
-	StorageTimeout uint   // Таймаут соединения с хранилищем
-	Retries        string // Интервалы попыток соединения с хранилищем через запятую
-	Migrations     string // Путь до директории с файлами миграции
+	StoreTimeout uint   // Таймаут выполнения операций с хранилищем
+	Retries      string // Интервалы попыток соединения с хранилищем через запятую
+	Migrations   string // Путь до директории с файлами миграции
 }
 
 func NewConfig() *Config {

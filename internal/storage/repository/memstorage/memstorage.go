@@ -19,9 +19,9 @@ import (
 type MemStorage struct {
 	storage []metric.Metrics // in-memory хранилище метрик
 
-	fileStoragePath string        // путь до файла, в который сохраняются метрики
-	syncSave        bool          // признак синхронной записи в файл
-	closeCh         chan struct{} // канал, принимающий сообщение о необходимости прекратить сохранения в файл
+	fileStoragePath string // путь до файла, в который сохраняются метрики
+	syncSave        bool   // признак синхронной записи в файл
+	closeSave       func() // функция, закрывающая горутину, которая пишет в файл
 	retries         []int
 	mtx             sync.RWMutex
 	l               *log.Logger
@@ -41,6 +41,7 @@ func NewMemStorage(
 		fileStoragePath: file,
 		retries:         retries,
 		syncSave:        storeInterval == 0,
+		closeSave:       func() {},
 		l:               lg,
 	}
 
@@ -52,23 +53,20 @@ func NewMemStorage(
 	}
 
 	if file != "" && storeInterval > 0 {
-		s.closeCh = make(chan struct{})
+		saveCtx, cancel := context.WithCancel(context.Background())
+		s.closeSave = cancel
 		ticker := time.NewTicker(time.Duration(storeInterval) * time.Second)
 
 		go func() {
 			for {
 				select {
-				case <-s.closeCh:
-					if err := s.save(context.Background()); err != nil {
-						s.l.Errorf("error when saving metrics to the file: %s", err)
-					}
-
+				case <-saveCtx.Done():
 					ticker.Stop()
 
 					return
 
 				case <-ticker.C:
-					if err := s.save(context.Background()); err != nil {
+					if err := s.save(saveCtx); err != nil {
 						s.l.Errorf("error when saving metrics to the file: %s", err)
 					}
 				}
@@ -229,18 +227,7 @@ func (s *MemStorage) Ping(_ context.Context) error {
 }
 
 func (s *MemStorage) Close() error {
-	s.mtx.Lock()
-	defer s.mtx.Unlock()
-
-	if s.closeCh != nil {
-		select {
-		case <-s.closeCh:
-			// s.closeCh уже закрыт
-		default:
-			s.closeCh <- struct{}{}
-			close(s.closeCh)
-		}
-	}
+	s.closeSave()
 
 	return nil
 }

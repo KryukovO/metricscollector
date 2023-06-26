@@ -80,34 +80,37 @@ func (snd *Sender) Send(ctx context.Context, storage []metric.Metrics) error {
 }
 
 func (snd *Sender) generateSendTasks(ctx context.Context, storage []metric.Metrics) chan []metric.Metrics {
-	out := make(chan []metric.Metrics, snd.rateLimit)
+	outCh := make(chan []metric.Metrics, snd.rateLimit)
 
 	go func() {
-		defer close(out)
+		defer close(outCh)
 
 		batch := make([]metric.Metrics, 0, snd.batchSize)
 
 		for _, mtrc := range storage {
-			select {
-			case <-ctx.Done():
-				return
-			default:
-				batch = append(batch, mtrc)
+			batch = append(batch, mtrc)
 
-				if len(batch) == int(snd.batchSize) {
-					out <- batch
-
-					batch = make([]metric.Metrics, 0, snd.batchSize)
+			if len(batch) == int(snd.batchSize) {
+				select {
+				case <-ctx.Done():
+					return
+				case outCh <- batch:
 				}
+
+				batch = make([]metric.Metrics, 0, snd.batchSize)
 			}
 		}
 
 		if len(batch) != 0 {
-			out <- batch
+			select {
+			case <-ctx.Done():
+				return
+			case outCh <- batch:
+			}
 		}
 	}()
 
-	return out
+	return outCh
 }
 
 func (snd *Sender) sendTaskWorker(ctx context.Context, id int, tasks <-chan []metric.Metrics) error {
