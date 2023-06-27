@@ -21,13 +21,15 @@ type ScanResult struct {
 func scanMetrics(ctx context.Context) chan ScanResult {
 	rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
 
-	rtmCh := scanRuntimeMetrics(ctx, rnd)
-	psutilCh := scanPSUtilMetrics(ctx)
-	outCh := make(chan ScanResult)
+	channels := []chan ScanResult{
+		scanRuntimeMetrics(ctx, rnd),
+		scanPSUtilMetrics(ctx),
+	}
 
-	var wg sync.WaitGroup
+	outCh := make(chan ScanResult, len(channels))
+	wg := new(sync.WaitGroup)
 
-	for _, ch := range []chan ScanResult{rtmCh, psutilCh} {
+	for _, ch := range channels {
 		wg.Add(1)
 
 		go func(inCh <-chan ScanResult) {
@@ -53,7 +55,7 @@ func scanMetrics(ctx context.Context) chan ScanResult {
 }
 
 func scanRuntimeMetrics(ctx context.Context, rnd *rand.Rand) chan ScanResult {
-	outCh := make(chan ScanResult)
+	outCh := make(chan ScanResult, 1)
 
 	go func() {
 		defer close(outCh)
@@ -115,7 +117,7 @@ func scanRuntimeMetrics(ctx context.Context, rnd *rand.Rand) chan ScanResult {
 }
 
 func scanPSUtilMetrics(ctx context.Context) chan ScanResult {
-	outCh := make(chan ScanResult)
+	outCh := make(chan ScanResult, 1)
 
 	go func() {
 		defer close(outCh)
