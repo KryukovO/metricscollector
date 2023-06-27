@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -18,13 +19,16 @@ import (
 	"github.com/KryukovO/metricscollector/internal/metric"
 	"github.com/KryukovO/metricscollector/internal/utils"
 	log "github.com/sirupsen/logrus"
+	"golang.org/x/sync/errgroup"
 )
 
 type Sender struct {
 	serverAddress string
+	rateLimit     uint
 	httpTimeout   time.Duration
 	batchSize     uint
 	retries       []int
+	key           string
 	l             *log.Logger
 }
 
@@ -47,71 +51,107 @@ func NewSender(cfg *config.Config, l *log.Logger) (*Sender, error) {
 
 	return &Sender{
 		serverAddress: cfg.ServerAddress,
+		rateLimit:     cfg.RateLimit,
 		httpTimeout:   time.Duration(cfg.HTTPTimeout) * time.Second,
 		batchSize:     cfg.BatchSize,
 		retries:       retries,
+		key:           cfg.Key,
 		l:             lg,
 	}, nil
 }
 
-func (snd *Sender) InitMetricSend(storage []metric.Metrics) error {
+func (snd *Sender) Send(ctx context.Context, storage []metric.Metrics) error {
 	if storage == nil {
 		return ErrStorageIsNil
 	}
 
-	mtrcs := make([]metric.Metrics, 0, snd.batchSize)
+	g, ctx := errgroup.WithContext(ctx)
+	tasks := snd.generateSendTasks(ctx, storage)
 
-	sendBatch := func(mtrcs []metric.Metrics) error {
-		var (
-			err    error
-			client http.Client
-		)
+	for w := 1; w <= int(snd.rateLimit); w++ {
+		id := w
 
-		send := func() error {
-			ctx, cancel := context.WithTimeout(context.Background(), snd.httpTimeout)
-			defer cancel()
-
-			return snd.sendMetrics(ctx, &client, mtrcs)
-		}
-
-		for _, t := range snd.retries {
-			err = utils.Wait(context.Background(), time.Duration(t)*time.Second)
-			if err != nil {
-				return err
-			}
-
-			err = send()
-			if err == nil || !errors.Is(err, syscall.ECONNREFUSED) {
-				break
-			}
-		}
-
-		if err != nil {
-			snd.l.Infof("error sending metric values: %s", err.Error())
-		} else {
-			snd.l.Infof("metrics sent: %d", len(mtrcs))
-		}
-
-		return nil
+		g.Go(func() error {
+			return snd.sendTaskWorker(ctx, id, tasks)
+		})
 	}
 
-	for _, mtrc := range storage {
-		mtrcs = append(mtrcs, mtrc)
+	return g.Wait()
+}
 
-		if len(mtrcs) == int(snd.batchSize) {
-			err := sendBatch(mtrcs)
-			if err != nil {
-				return err
+func (snd *Sender) generateSendTasks(ctx context.Context, storage []metric.Metrics) chan []metric.Metrics {
+	outCh := make(chan []metric.Metrics, snd.rateLimit)
+
+	go func() {
+		defer close(outCh)
+
+		batch := make([]metric.Metrics, 0, snd.batchSize)
+
+		for _, mtrc := range storage {
+			batch = append(batch, mtrc)
+
+			if len(batch) == int(snd.batchSize) {
+				select {
+				case <-ctx.Done():
+					return
+				case outCh <- batch:
+				}
+
+				batch = make([]metric.Metrics, 0, snd.batchSize)
+			}
+		}
+
+		if len(batch) != 0 {
+			select {
+			case <-ctx.Done():
+				return
+			case outCh <- batch:
+			}
+		}
+	}()
+
+	return outCh
+}
+
+func (snd *Sender) sendTaskWorker(ctx context.Context, id int, tasks <-chan []metric.Metrics) error {
+	var (
+		err    error
+		client http.Client
+	)
+
+	for batch := range tasks {
+		select {
+		case <-ctx.Done():
+			return nil
+		default:
+			send := func() error {
+				ctx, cancel := context.WithTimeout(ctx, snd.httpTimeout)
+				defer cancel()
+
+				return snd.sendMetrics(ctx, &client, batch)
 			}
 
-			mtrcs = make([]metric.Metrics, 0, snd.batchSize)
-		}
-	}
+			for _, t := range snd.retries {
+				err = utils.Wait(ctx, time.Duration(t)*time.Second)
+				if err != nil {
+					break
+				}
 
-	if len(mtrcs) != 0 {
-		err := sendBatch(mtrcs)
-		if err != nil {
-			return err
+				err = send()
+				if err == nil || !errors.Is(err, syscall.ECONNREFUSED) {
+					break
+				}
+			}
+
+			if err != nil {
+				if errors.Is(err, ErrClientIsNil) {
+					return err
+				}
+
+				snd.l.Errorf("[worker %d] error sending metric values: %s", id, err.Error())
+			} else {
+				snd.l.Debugf("[worker %d] metrics sent: %d", id, len(batch))
+			}
 		}
 	}
 
@@ -146,6 +186,15 @@ func (snd *Sender) sendMetrics(ctx context.Context, client *http.Client, batch [
 
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Set("Content-Encoding", "gzip")
+
+	if snd.key != "" {
+		hash, err := utils.HashSHA256(body, []byte(snd.key))
+		if err != nil {
+			return err
+		}
+
+		req.Header.Set("HashSHA256", hex.EncodeToString(hash))
+	}
 
 	resp, err := client.Do(req)
 	if err != nil {

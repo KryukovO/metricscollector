@@ -14,9 +14,12 @@ const (
 	serverAddress  = "localhost:8080"
 	reportInterval = 10
 	pollInterval   = 2
-	httpTimeout    = 5
-	batchSize      = 20
-	retries        = "1,3,5"
+	key            = ""
+	rateLimit      = 2
+
+	httpTimeout = 5
+	batchSize   = 10
+	retries     = "1,3,5"
 )
 
 func main() {
@@ -25,13 +28,17 @@ func main() {
 	flag.StringVar(&cfg.ServerAddress, "a", serverAddress, "Server endpoint address")
 	flag.UintVar(&cfg.ReportInterval, "r", reportInterval, "Metric reporting frequency in second")
 	flag.UintVar(&cfg.PollInterval, "p", pollInterval, "Metric polling frequency in seconds")
-	flag.UintVar(&cfg.HTTPTimeout, "timeout", httpTimeout, "Server connect timeout")
+	flag.StringVar(&cfg.Key, "k", key, "Server key")
+	flag.UintVar(&cfg.RateLimit, "l", rateLimit, "Number of concurrent requests")
+
+	flag.UintVar(&cfg.HTTPTimeout, "timeout", httpTimeout, "Server connection timeout")
 	flag.UintVar(&cfg.BatchSize, "batch", batchSize, "Metrics batch size")
-	flag.StringVar(&cfg.Retries, "retries", retries, "Server connect retry intervals")
+	flag.StringVar(&cfg.Retries, "retries", retries, "Server connection retry intervals")
 
 	flag.Parse()
 
 	l := log.New()
+	l.SetLevel(log.DebugLevel)
 	l.SetFormatter(&log.TextFormatter{
 		FullTimestamp:   true,
 		TimestampFormat: "2006-01-02 15:04:05 Z07:00",
