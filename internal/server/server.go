@@ -2,8 +2,13 @@ package server
 
 import (
 	"context"
+	"errors"
+	"net/http"
+	"os"
+	"os/signal"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/KryukovO/metricscollector/internal/server/config"
@@ -14,6 +19,7 @@ import (
 
 	"github.com/labstack/echo"
 	log "github.com/sirupsen/logrus"
+	"golang.org/x/sync/errgroup"
 )
 
 type Server struct {
@@ -51,7 +57,10 @@ func (s *Server) Run() error {
 		retries = append(retries, interval)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(s.cfg.StoreTimeout)*time.Second)
+	sigCtx, sigCancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer sigCancel()
+
+	ctx, cancel := context.WithTimeout(sigCtx, time.Duration(s.cfg.StoreTimeout)*time.Second)
 	defer cancel()
 
 	if s.cfg.DSN != "" {
@@ -64,8 +73,14 @@ func (s *Server) Run() error {
 		return err
 	}
 
+	s.l.Info("Connecting to the repository...")
+
 	stor := storage.NewMetricsStorage(repo, s.cfg.StoreTimeout)
-	defer stor.Close()
+	defer func() {
+		stor.Close()
+
+		s.l.Info("Repository closed")
+	}()
 
 	// Инициализация сервера
 	// NOTE: можно также переопределить e.HTTPErrorHandler, чтобы он не заполнял тело ответа
@@ -77,8 +92,45 @@ func (s *Server) Run() error {
 		return err
 	}
 
-	// Запуск сервера
-	s.l.Infof("Server is running on %s...", s.cfg.HTTPAddress)
+	quitC := make(chan os.Signal, 1)
 
-	return e.Start(s.cfg.HTTPAddress)
+	signal.Notify(quitC, os.Interrupt, syscall.SIGTERM)
+	defer signal.Stop(quitC)
+
+	g, groupCtx := errgroup.WithContext(context.Background())
+
+	// Запуск сервера
+	g.Go(func() error {
+		s.l.Infof("Run server at %s...", s.cfg.HTTPAddress)
+
+		if err := e.Start(s.cfg.HTTPAddress); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			return err
+		}
+
+		return nil
+	})
+
+	// Ожидание сигнала завершения
+	g.Go(func() error {
+		select {
+		case <-groupCtx.Done():
+			return nil
+		case <-sigCtx.Done():
+		}
+
+		s.l.Info("Stopping server...")
+
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), time.Duration(s.cfg.ShutdownTimeout)*time.Second)
+		defer cancel()
+
+		if err := e.Shutdown(shutdownCtx); err != nil {
+			s.l.Errorf("Can't gracefully shutdown server: %s", err.Error())
+		} else {
+			s.l.Info("Server stopped gracefully")
+		}
+
+		return nil
+	})
+
+	return g.Wait()
 }

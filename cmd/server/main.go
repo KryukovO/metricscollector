@@ -21,9 +21,10 @@ const (
 	dsn             = ""
 	key             = ""
 
-	storeTimeout = 5
-	retries      = "1,3,5"
-	migrations   = "sql/migrations"
+	storeTimeout    = 5
+	shutdownTimeout = 10
+	retries         = "1,3,5"
+	migrations      = "sql/migrations"
 )
 
 func main() {
@@ -37,6 +38,7 @@ func main() {
 	flag.StringVar(&cfg.Key, "k", key, "Server key")
 
 	flag.UintVar(&cfg.StoreTimeout, "timeout", storeTimeout, "Storage connection timeout")
+	flag.UintVar(&cfg.ShutdownTimeout, "shutdown", shutdownTimeout, "Graceful shutdown timeout")
 	flag.StringVar(&cfg.Retries, "retries", retries, "Server connect retry intervals")
 	flag.StringVar(&cfg.Migrations, "migrations", migrations, "Directory of database migration files")
 
@@ -51,11 +53,11 @@ func main() {
 
 	err := env.Parse(cfg)
 	if err != nil {
-		l.Fatalf("env parsing error: %s. Exit(1)", err.Error())
+		l.Fatalf("Env parsing error: %s. Exit(1)", err.Error())
 	}
 
 	s := server.NewServer(cfg, l)
 	if err := s.Run(); err != nil {
-		l.Fatalf("server error: %s. Exit(1)", err.Error())
+		l.Fatalf("Server error: %s. Exit(1)", err.Error())
 	}
 }

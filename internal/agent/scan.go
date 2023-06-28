@@ -19,10 +19,8 @@ type ScanResult struct {
 }
 
 func scanMetrics(ctx context.Context) chan ScanResult {
-	rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
-
 	channels := []chan ScanResult{
-		scanRuntimeMetrics(ctx, rnd),
+		scanRuntimeMetrics(ctx, rand.New(rand.NewSource(time.Now().UnixNano()))),
 		scanPSUtilMetrics(ctx),
 	}
 
