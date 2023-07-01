@@ -63,6 +63,8 @@ func (s *Server) Run() error {
 	ctx, cancel := context.WithTimeout(sigCtx, time.Duration(s.cfg.StoreTimeout)*time.Second)
 	defer cancel()
 
+	s.l.Info("Connecting to the repository...")
+
 	if s.cfg.DSN != "" {
 		repo, err = pgstorage.NewPgStorage(ctx, s.cfg.DSN, s.cfg.Migrations, retries)
 	} else {
@@ -72,8 +74,6 @@ func (s *Server) Run() error {
 	if err != nil {
 		return err
 	}
-
-	s.l.Info("Connecting to the repository...")
 
 	stor := storage.NewMetricsStorage(repo, s.cfg.StoreTimeout)
 	defer func() {
@@ -91,11 +91,6 @@ func (s *Server) Run() error {
 	if err := handlers.SetHandlers(e, stor, []byte(s.cfg.Key), s.l); err != nil {
 		return err
 	}
-
-	quitC := make(chan os.Signal, 1)
-
-	signal.Notify(quitC, os.Interrupt, syscall.SIGTERM)
-	defer signal.Stop(quitC)
 
 	g, groupCtx := errgroup.WithContext(context.Background())
 
