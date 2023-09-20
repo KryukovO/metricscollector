@@ -252,6 +252,7 @@ func TestUpdate(t *testing.T) {
 	}
 
 	for _, test := range tests {
+		test := test
 		repo, _, err := newTestRepo(true)
 		require.NoError(t, err)
 
