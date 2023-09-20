@@ -629,3 +629,178 @@ func TestGetAllHandler(t *testing.T) {
 		})
 	}
 }
+
+func BenchmarkUpdateHandler(b *testing.B) {
+	timeout := 10
+	params := []string{"mtype", "mname", "value"}
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		b.StopTimer()
+
+		rec := httptest.NewRecorder()
+		ctx, _ := newEchoContext(rec, http.MethodPost, "/update/gauge/Mallocs/100.0001", nil, params)
+		repo, _ := newTestRepo(true)
+
+		s := StorageController{
+			storage: storage.NewMetricsStorage(repo, uint(timeout)),
+			l:       logrus.StandardLogger(),
+		}
+		b.StartTimer()
+
+		s.updateHandler(ctx)
+
+		b.StopTimer()
+
+		res := rec.Result()
+		res.Body.Close()
+	}
+}
+
+func BenchmarkUpdateJSONHandler(b *testing.B) {
+	timeout := 10
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		b.StopTimer()
+
+		body := bytes.NewReader([]byte(`{"id":"Mallocs", "type":"gauge", "value":100.0001}`))
+		rec := httptest.NewRecorder()
+		ctx, _ := newEchoContext(rec, http.MethodPost, "/update/", body, nil)
+		repo, _ := newTestRepo(true)
+
+		s := StorageController{
+			storage: storage.NewMetricsStorage(repo, uint(timeout)),
+			l:       logrus.StandardLogger(),
+		}
+
+		b.StartTimer()
+
+		s.updateJSONHandler(ctx)
+
+		b.StopTimer()
+
+		res := rec.Result()
+		res.Body.Close()
+	}
+}
+
+func BenchmarkUpdatesHandler(b *testing.B) {
+	timeout := 10
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		b.StopTimer()
+
+		rec := httptest.NewRecorder()
+		body := bytes.NewReader([]byte(
+			`[{"id":"Mallocs", "type":"gauge", "value":100.0001}, 
+		{"id":"PollCount", "type":"counter", "delta":1}]`,
+		))
+		ctx, _ := newEchoContext(rec, http.MethodPost, "/updates/", body, nil)
+		repo, _ := newTestRepo(true)
+
+		s := StorageController{
+			storage: storage.NewMetricsStorage(repo, uint(timeout)),
+			l:       logrus.StandardLogger(),
+		}
+
+		b.StartTimer()
+
+		s.updatesHandler(ctx)
+
+		b.StopTimer()
+
+		res := rec.Result()
+		res.Body.Close()
+	}
+}
+
+func BenchmarkGetValueHandler(b *testing.B) {
+	timeout := 10
+	params := []string{"mtype", "mname"}
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		b.StopTimer()
+
+		rec := httptest.NewRecorder()
+		ctx, _ := newEchoContext(rec, http.MethodGet, "/value/counter/PollCount", nil, params)
+		repo, _ := newTestRepo(false)
+
+		s := StorageController{
+			storage: storage.NewMetricsStorage(repo, uint(timeout)),
+			l:       logrus.StandardLogger(),
+		}
+
+		b.StartTimer()
+
+		s.getValueHandler(ctx)
+
+		b.StopTimer()
+
+		res := rec.Result()
+		res.Body.Close()
+	}
+}
+
+func BenchmarkGetValueJSONHandler(b *testing.B) {
+	timeout := 10
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		b.StopTimer()
+
+		rec := httptest.NewRecorder()
+		body := bytes.NewReader([]byte(`{"id":"PollCount", "type":"counter"}`))
+		ctx, _ := newEchoContext(rec, http.MethodGet, "/value/", body, nil)
+		repo, _ := newTestRepo(false)
+
+		s := StorageController{
+			storage: storage.NewMetricsStorage(repo, uint(timeout)),
+			l:       logrus.StandardLogger(),
+		}
+
+		b.StartTimer()
+
+		s.getValueJSONHandler(ctx)
+
+		b.StopTimer()
+
+		res := rec.Result()
+		res.Body.Close()
+	}
+}
+
+func BenchmarkGetAllHandler(b *testing.B) {
+	timeout := 10
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		b.StopTimer()
+
+		rec := httptest.NewRecorder()
+		ctx, _ := newEchoContext(rec, http.MethodGet, "/", nil, nil)
+		repo, _ := newTestRepo(false)
+
+		s := StorageController{
+			storage: storage.NewMetricsStorage(repo, uint(timeout)),
+			l:       logrus.StandardLogger(),
+		}
+
+		b.StartTimer()
+
+		s.getAllHandler(ctx)
+
+		b.StopTimer()
+
+		res := rec.Result()
+		res.Body.Close()
+	}
+}

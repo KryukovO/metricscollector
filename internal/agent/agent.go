@@ -68,7 +68,7 @@ func (a *Agent) Run() error {
 				return nil
 
 			case <-scanTicker.C:
-				metricCh := scanMetrics(ctx)
+				metricCh := ScanMetrics(ctx)
 
 				mtx.Lock()
 

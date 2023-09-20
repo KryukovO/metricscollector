@@ -18,7 +18,7 @@ type ScanResult struct {
 	err  error
 }
 
-func scanMetrics(ctx context.Context) chan ScanResult {
+func ScanMetrics(ctx context.Context) chan ScanResult {
 	channels := []chan ScanResult{
 		scanRuntimeMetrics(ctx, rand.New(rand.NewSource(time.Now().UnixNano()))),
 		scanPSUtilMetrics(ctx),

@@ -407,3 +407,59 @@ func TestUpdateMany(t *testing.T) {
 		})
 	}
 }
+
+func BenchmarkGet(b *testing.B) {
+	ctx := context.Background()
+	repo, mtrc, _ := newTestRepo(false)
+
+	s := MetricsStorage{repo: repo}
+
+	b.Run("getValue", func(b *testing.B) {
+		s.GetValue(ctx, mtrc[0].MType, mtrc[0].ID)
+	})
+
+	b.Run("getAll", func(b *testing.B) {
+		s.GetAll(ctx)
+	})
+}
+
+func BenchmarkUpdate(b *testing.B) {
+	ctx := context.Background()
+	timeout := 10
+	counterVal := int64(100)
+	gaugeVal := 12345.67
+	mtrc := []metric.Metrics{
+		{
+			ID:    "RandomValue",
+			MType: metric.GaugeMetric,
+			Value: &gaugeVal,
+		},
+		{
+			ID:    "PollCount",
+			MType: metric.CounterMetric,
+			Delta: &counterVal,
+		},
+	}
+
+	b.Run("update", func(b *testing.B) {
+		repo, _, _ := newTestRepo(true)
+		s := NewMetricsStorage(repo, uint(timeout))
+
+		b.ResetTimer()
+
+		for i := 0; i < b.N; i++ {
+			s.Update(ctx, &mtrc[0])
+		}
+	})
+
+	b.Run("updateMany", func(b *testing.B) {
+		repo, _, _ := newTestRepo(true)
+		s := NewMetricsStorage(repo, uint(timeout))
+
+		b.ResetTimer()
+
+		for i := 0; i < b.N; i++ {
+			s.UpdateMany(ctx, mtrc)
+		}
+	})
+}
