@@ -12,7 +12,7 @@ import (
 	"github.com/KryukovO/metricscollector/internal/metric"
 	"github.com/KryukovO/metricscollector/internal/storage"
 
-	"github.com/labstack/echo"
+	"github.com/labstack/echo/v4"
 	log "github.com/sirupsen/logrus"
 )
 

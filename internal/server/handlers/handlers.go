@@ -5,7 +5,8 @@ import (
 
 	"github.com/KryukovO/metricscollector/internal/server/middleware"
 	"github.com/KryukovO/metricscollector/internal/storage"
-	"github.com/labstack/echo"
+	"github.com/labstack/echo-contrib/pprof"
+	"github.com/labstack/echo/v4"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -34,6 +35,8 @@ func SetHandlers(e *echo.Echo, s storage.Storage, key []byte, l *log.Logger) err
 		mw.GZipMiddleware,
 		mw.HashMiddleware,
 	)
+
+	pprof.Register(e) // Регистрация профилировщика
 
 	return MapStorageHandlers(e.Router(), ctrl)
 }

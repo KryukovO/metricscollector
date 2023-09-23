@@ -11,7 +11,7 @@ import (
 
 	"github.com/KryukovO/metricscollector/internal/utils"
 	"github.com/google/uuid"
-	"github.com/labstack/echo"
+	"github.com/labstack/echo/v4"
 	log "github.com/sirupsen/logrus"
 )
 

@@ -15,7 +15,7 @@ import (
 	"github.com/KryukovO/metricscollector/internal/metric"
 	"github.com/KryukovO/metricscollector/internal/storage"
 	"github.com/KryukovO/metricscollector/internal/storage/repository/memstorage"
-	"github.com/labstack/echo"
+	"github.com/labstack/echo/v4"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

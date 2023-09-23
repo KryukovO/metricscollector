@@ -17,7 +17,7 @@ import (
 	"github.com/KryukovO/metricscollector/internal/storage/repository/memstorage"
 	"github.com/KryukovO/metricscollector/internal/storage/repository/pgstorage"
 
-	"github.com/labstack/echo"
+	"github.com/labstack/echo/v4"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
 )

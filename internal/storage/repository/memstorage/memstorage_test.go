@@ -241,9 +241,12 @@ func TestUpdate(t *testing.T) {
 				for _, mtrc := range s.storage {
 					if mtrc.ID == test.arg.ID {
 						v = mtrc
-						return
+
+						break
 					}
 				}
+
+				require.Equal(t, test.arg.ID, v.ID)
 
 				if test.arg.Delta != nil {
 					assert.EqualValues(
@@ -353,9 +356,12 @@ func TestUpdateMany(t *testing.T) {
 					for _, mtrc := range s.storage {
 						if mtrc.ID == testMtrc.ID {
 							v = mtrc
-							return
+
+							break
 						}
 					}
+
+					require.Equal(t, testMtrc.ID, v.ID)
 
 					if testMtrc.Delta != nil {
 						assert.EqualValues(
