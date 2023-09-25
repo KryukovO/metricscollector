@@ -227,39 +227,48 @@ func TestUpdate(t *testing.T) {
 			if test.wantErr {
 				assert.Error(t, err)
 				assert.Equal(t, true, len(s.storage) == len(storage), "The update returned an error, but the value was saved")
+
+				return
+			}
+
+			assert.NoError(t, err)
+
+			if test.newMetric {
+				require.Equal(
+					t, true, len(s.storage) == len(storage)+1,
+					"The new metric update was successful, but no value was added.",
+				)
 			} else {
-				assert.NoError(t, err)
+				require.Equal(
+					t, true, len(s.storage) == len(storage),
+					"The update to an existing metric was successful, but the value was added rather than changed.",
+				)
+			}
 
-				if test.newMetric {
-					require.Equal(t, true, len(s.storage) == len(storage)+1, "The new metric update was successful, but no value was added.")
-				} else {
-					require.Equal(t, true, len(s.storage) == len(storage), "The update to an existing metric was successful, but the value was added rather than changed.")
+			var v metric.Metrics
+
+			for _, mtrc := range s.storage {
+				if mtrc.ID == test.arg.ID {
+					v = mtrc
+
+					break
 				}
+			}
 
-				var v metric.Metrics
+			require.Equal(t, test.arg.ID, v.ID)
 
-				for _, mtrc := range s.storage {
-					if mtrc.ID == test.arg.ID {
-						v = mtrc
+			if test.arg.Delta != nil {
+				assert.EqualValues(
+					t, *test.arg.Delta, *v.Delta,
+					"Saved value '%v' is not equal to expected '%v'", *v.Delta, *test.arg.Delta,
+				)
+			}
 
-						break
-					}
-				}
-
-				require.Equal(t, test.arg.ID, v.ID)
-
-				if test.arg.Delta != nil {
-					assert.EqualValues(
-						t, *test.arg.Delta, *v.Delta,
-						"Saved value '%v' is not equal to expected '%v'", *v.Delta, *test.arg.Delta,
-					)
-				}
-				if test.arg.Value != nil {
-					assert.EqualValues(
-						t, *test.arg.Value, *v.Value,
-						"Saved value '%v' is not equal to expected '%v'", *v.Value, *test.arg.Value,
-					)
-				}
+			if test.arg.Value != nil {
+				assert.EqualValues(
+					t, *test.arg.Value, *v.Value,
+					"Saved value '%v' is not equal to expected '%v'", *v.Value, *test.arg.Value,
+				)
 			}
 		})
 	}
@@ -340,41 +349,53 @@ func TestUpdateMany(t *testing.T) {
 
 			if test.wantErr {
 				assert.Error(t, err)
-				assert.Equal(t, true, len(s.storage) == len(storage), "The update returned an error, but the value was saved")
-			} else {
-				assert.NoError(t, err)
+				assert.Equal(
+					t, true, len(s.storage) == len(storage),
+					"The update returned an error, but the value was saved.",
+				)
 
-				if test.newMetrics {
-					require.Equal(t, true, len(s.storage) == len(storage)+len(test.arg), "Updating new metrics was successful, but no value was added.")
-				} else {
-					require.Equal(t, true, len(s.storage) == len(storage), "Updating existing metrics was successful, but values was added rather than changed.")
+				return
+			}
+
+			assert.NoError(t, err)
+
+			if test.newMetrics {
+				require.Equal(
+					t, true, len(s.storage) == len(storage)+len(test.arg),
+					"Updating new metrics was successful, but no value was added.",
+				)
+			} else {
+				require.Equal(
+					t, true, len(s.storage) == len(storage),
+					"Updating existing metrics was successful, but values was added rather than changed.",
+				)
+			}
+
+			for _, testMtrc := range test.arg {
+				var v metric.Metrics
+
+				for _, mtrc := range s.storage {
+					if mtrc.ID == testMtrc.ID {
+						v = mtrc
+
+						break
+					}
 				}
 
-				for _, testMtrc := range test.arg {
-					var v metric.Metrics
+				require.Equal(t, testMtrc.ID, v.ID)
 
-					for _, mtrc := range s.storage {
-						if mtrc.ID == testMtrc.ID {
-							v = mtrc
+				if testMtrc.Delta != nil {
+					assert.EqualValues(
+						t, *testMtrc.Delta, *v.Delta,
+						"Saved value '%v' is not equal to expected '%v'", *v.Delta, *testMtrc.Delta,
+					)
+				}
 
-							break
-						}
-					}
-
-					require.Equal(t, testMtrc.ID, v.ID)
-
-					if testMtrc.Delta != nil {
-						assert.EqualValues(
-							t, *testMtrc.Delta, *v.Delta,
-							"Saved value '%v' is not equal to expected '%v'", *v.Delta, *testMtrc.Delta,
-						)
-					}
-					if testMtrc.Value != nil {
-						assert.EqualValues(
-							t, *testMtrc.Value, *v.Value,
-							"Saved value '%v' is not equal to expected '%v'", *v.Value, *testMtrc.Value,
-						)
-					}
+				if testMtrc.Value != nil {
+					assert.EqualValues(
+						t, *testMtrc.Value, *v.Value,
+						"Saved value '%v' is not equal to expected '%v'", *v.Value, *testMtrc.Value,
+					)
 				}
 			}
 		})
@@ -402,11 +423,17 @@ func BenchmarkGet(b *testing.B) {
 	}
 
 	b.Run("getValue", func(b *testing.B) {
-		s.GetValue(ctx, metric.CounterMetric, "PollCount")
+		_, err := s.GetValue(ctx, metric.CounterMetric, "PollCount")
+		if err != nil {
+			b.Fatal(err)
+		}
 	})
 
 	b.Run("getAll", func(b *testing.B) {
-		s.GetAll(ctx)
+		_, err := s.GetAll(ctx)
+		if err != nil {
+			b.Fatal(err)
+		}
 	})
 }
 
@@ -435,7 +462,10 @@ func BenchmarkUpdate(b *testing.B) {
 		b.ResetTimer()
 
 		for i := 0; i < b.N; i++ {
-			s.Update(ctx, &mtrc[0])
+			err := s.Update(ctx, &mtrc[0])
+			if err != nil {
+				b.Fatal(err)
+			}
 		}
 	})
 
@@ -447,7 +477,10 @@ func BenchmarkUpdate(b *testing.B) {
 		b.ResetTimer()
 
 		for i := 0; i < b.N; i++ {
-			s.UpdateMany(ctx, mtrc)
+			err := s.UpdateMany(ctx, mtrc)
+			if err != nil {
+				b.Fatal(err)
+			}
 		}
 	})
 }

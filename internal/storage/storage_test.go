@@ -415,11 +415,17 @@ func BenchmarkGet(b *testing.B) {
 	s := MetricsStorage{repo: repo}
 
 	b.Run("getValue", func(b *testing.B) {
-		s.GetValue(ctx, mtrc[0].MType, mtrc[0].ID)
+		_, err := s.GetValue(ctx, mtrc[0].MType, mtrc[0].ID)
+		if err != nil {
+			b.Fatal(err)
+		}
 	})
 
 	b.Run("getAll", func(b *testing.B) {
-		s.GetAll(ctx)
+		_, err := s.GetAll(ctx)
+		if err != nil {
+			b.Fatal(err)
+		}
 	})
 }
 
@@ -448,7 +454,10 @@ func BenchmarkUpdate(b *testing.B) {
 		b.ResetTimer()
 
 		for i := 0; i < b.N; i++ {
-			s.Update(ctx, &mtrc[0])
+			err := s.Update(ctx, &mtrc[0])
+			if err != nil {
+				b.Fatal(err)
+			}
 		}
 	})
 
@@ -459,7 +468,10 @@ func BenchmarkUpdate(b *testing.B) {
 		b.ResetTimer()
 
 		for i := 0; i < b.N; i++ {
-			s.UpdateMany(ctx, mtrc)
+			err := s.UpdateMany(ctx, mtrc)
+			if err != nil {
+				b.Fatal(err)
+			}
 		}
 	})
 }

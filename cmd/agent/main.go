@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"net/http"
 
@@ -26,8 +27,6 @@ const (
 )
 
 func main() {
-	go http.ListenAndServe("0.0.0.0:8081", nil)
-
 	cfg := config.NewConfig()
 
 	flag.StringVar(&cfg.ServerAddress, "a", serverAddress, "Server endpoint address")
@@ -48,6 +47,12 @@ func main() {
 		FullTimestamp:   true,
 		TimestampFormat: "2006-01-02 15:04:05 Z07:00",
 	})
+
+	go func() {
+		if err := http.ListenAndServe("0.0.0.0:8081", nil); !errors.Is(err, http.ErrServerClosed) {
+			l.Errorf("pprof running error: %v", err)
+		}
+	}()
 
 	err := env.Parse(cfg)
 	if err != nil {

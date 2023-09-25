@@ -5,7 +5,7 @@ import (
 
 	"github.com/KryukovO/metricscollector/internal/server/middleware"
 	"github.com/KryukovO/metricscollector/internal/storage"
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo"
 	log "github.com/sirupsen/logrus"
 )
 

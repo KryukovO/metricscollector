@@ -21,6 +21,7 @@ func TestScanMetrics(t *testing.T) {
 	metricCh := ScanMetrics(context.Background())
 
 	result := make([]string, 0, len(keys))
+
 	for data := range metricCh {
 		assert.NoError(t, data.err)
 

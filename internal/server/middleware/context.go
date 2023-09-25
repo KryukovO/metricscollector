@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 
 	"github.com/KryukovO/metricscollector/internal/utils"
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo"
 )
 
 // Context реализует интерфейс echo.Context

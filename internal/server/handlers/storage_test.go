@@ -15,7 +15,7 @@ import (
 	"github.com/KryukovO/metricscollector/internal/metric"
 	"github.com/KryukovO/metricscollector/internal/storage"
 	"github.com/KryukovO/metricscollector/internal/storage/repository/memstorage"
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -647,9 +647,13 @@ func BenchmarkUpdateHandler(b *testing.B) {
 			storage: storage.NewMetricsStorage(repo, uint(timeout)),
 			l:       logrus.StandardLogger(),
 		}
+
 		b.StartTimer()
 
-		s.updateHandler(ctx)
+		err := s.updateHandler(ctx)
+		if err != nil {
+			b.Fatal(err)
+		}
 
 		b.StopTimer()
 
@@ -678,7 +682,10 @@ func BenchmarkUpdateJSONHandler(b *testing.B) {
 
 		b.StartTimer()
 
-		s.updateJSONHandler(ctx)
+		err := s.updateJSONHandler(ctx)
+		if err != nil {
+			b.Fatal(err)
+		}
 
 		b.StopTimer()
 
@@ -710,7 +717,10 @@ func BenchmarkUpdatesHandler(b *testing.B) {
 
 		b.StartTimer()
 
-		s.updatesHandler(ctx)
+		err := s.updatesHandler(ctx)
+		if err != nil {
+			b.Fatal(err)
+		}
 
 		b.StopTimer()
 
@@ -739,7 +749,10 @@ func BenchmarkGetValueHandler(b *testing.B) {
 
 		b.StartTimer()
 
-		s.getValueHandler(ctx)
+		err := s.getValueHandler(ctx)
+		if err != nil {
+			b.Fatal(err)
+		}
 
 		b.StopTimer()
 
@@ -768,7 +781,10 @@ func BenchmarkGetValueJSONHandler(b *testing.B) {
 
 		b.StartTimer()
 
-		s.getValueJSONHandler(ctx)
+		err := s.getValueJSONHandler(ctx)
+		if err != nil {
+			b.Fatal(err)
+		}
 
 		b.StopTimer()
 
@@ -796,7 +812,10 @@ func BenchmarkGetAllHandler(b *testing.B) {
 
 		b.StartTimer()
 
-		s.getAllHandler(ctx)
+		err := s.getAllHandler(ctx)
+		if err != nil {
+			b.Fatal(err)
+		}
 
 		b.StopTimer()
 
