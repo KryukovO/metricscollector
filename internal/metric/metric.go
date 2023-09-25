@@ -15,11 +15,12 @@ var (
 	ErrWrongMetricValue = errors.New("wrong metric value")
 )
 
+// Структура метрики.
 type Metrics struct {
-	ID    string   `json:"id"`              // имя метрики
-	MType string   `json:"type"`            // тип метрики (gauge или counter)
-	Delta *int64   `json:"delta,omitempty"` // значение метрики в случае передачи counter
-	Value *float64 `json:"value,omitempty"` // значение метрики в случае передачи gauge
+	ID    string   `json:"id"`              // Имя метрики
+	MType string   `json:"type"`            // Тип метрики (gauge или counter)
+	Delta *int64   `json:"delta,omitempty"` // Значение метрики в случае передачи counter
+	Value *float64 `json:"value,omitempty"` // Значение метрики в случае передачи gauge
 }
 
 // Создает структуру метрики.

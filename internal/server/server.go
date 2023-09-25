@@ -22,11 +22,13 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+// Структура сервера.
 type Server struct {
 	cfg *config.Config
 	l   *log.Logger
 }
 
+// СОздаёт новую структуру сервера.
 func NewServer(cfg *config.Config, l *log.Logger) *Server {
 	lg := log.StandardLogger()
 	if l != nil {
@@ -39,6 +41,7 @@ func NewServer(cfg *config.Config, l *log.Logger) *Server {
 	}
 }
 
+// Инициирует запуск HTTP-сервера и хранилища.
 func (s *Server) Run() error {
 	// Инициализация хранилища
 	var (

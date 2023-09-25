@@ -823,3 +823,31 @@ func BenchmarkGetAllHandler(b *testing.B) {
 		res.Body.Close()
 	}
 }
+
+func Example() {
+	// Инициализация логгера.
+	lg := logrus.StandardLogger()
+
+	// Инициализация инстанса сервера echo.
+	e := echo.New()
+
+	// Инициализация хранилища.
+	repo, err := memstorage.NewMemStorage(context.Background(), "path/to/file", true, 10, []int{1, 2, 3}, lg)
+	if err != nil {
+		panic(err)
+	}
+
+	stor := storage.NewMetricsStorage(repo, 10)
+	defer func() {
+		stor.Close()
+
+		lg.Info("Repository closed")
+	}()
+
+	// Маппинг обработчиков в инстанс echo.
+	if err := SetHandlers(e, stor, []byte("key"), lg); err != nil {
+		panic(err)
+	}
+
+	// Output:
+}
