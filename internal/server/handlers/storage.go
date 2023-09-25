@@ -114,7 +114,7 @@ func (c *StorageController) updateHandler(e echo.Context) error {
 		return e.NoContent(http.StatusInternalServerError)
 	}
 
-	err = c.storage.Update(e.Request().Context(), mtrc)
+	err = c.storage.Update(e.Request().Context(), &mtrc)
 	if errors.Is(err, metric.ErrWrongMetricName) {
 		c.l.Debugf("[%s] %s", uuid, err.Error())
 

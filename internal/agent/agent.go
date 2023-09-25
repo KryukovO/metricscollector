@@ -79,7 +79,7 @@ func (a *Agent) Run() error {
 						return err
 					}
 
-					storage = append(storage, *mtrc.mtrc)
+					storage = append(storage, mtrc.mtrc)
 				}
 
 				scanCount++
@@ -103,7 +103,7 @@ func (a *Agent) Run() error {
 					return err
 				}
 
-				storage = append(storage, *pollCount)
+				storage = append(storage, pollCount)
 				scanCount = 0
 				sndStorage := make([]metric.Metrics, len(storage))
 

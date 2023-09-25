@@ -14,7 +14,7 @@ import (
 )
 
 type ScanResult struct {
-	mtrc *metric.Metrics
+	mtrc metric.Metrics
 	err  error
 }
 

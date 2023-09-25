@@ -2,12 +2,15 @@ package main
 
 import (
 	"flag"
+	"net/http"
 
 	"github.com/KryukovO/metricscollector/internal/agent"
 	"github.com/KryukovO/metricscollector/internal/agent/config"
 
 	"github.com/caarlos0/env"
 	log "github.com/sirupsen/logrus"
+
+	_ "net/http/pprof"
 )
 
 const (
@@ -23,6 +26,8 @@ const (
 )
 
 func main() {
+	go http.ListenAndServe("0.0.0.0:8081", nil)
+
 	cfg := config.NewConfig()
 
 	flag.StringVar(&cfg.ServerAddress, "a", serverAddress, "Server endpoint address")
