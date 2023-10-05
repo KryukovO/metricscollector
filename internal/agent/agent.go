@@ -15,11 +15,15 @@ import (
 )
 
 var (
-	ErrStorageIsNil     = errors.New("metrics buf is nil")
-	ErrClientIsNil      = errors.New("HTTP client is nil")
+	// ErrStorageIsNil возвращается sender.Send, если был передан неинициализированный слайс метрик.
+	ErrStorageIsNil = errors.New("metrics buf is nil")
+	// ErrClientIsNil возвращается sender.sendMetrics, если был передан неинициализированный HTTP-клиент.
+	ErrClientIsNil = errors.New("HTTP client is nil")
+	// ErrUnexpectedStatus возвращается sender.sendMetrics, если сервером был возвращен статус отличный от 200 OK.
 	ErrUnexpectedStatus = errors.New("unexpected response status")
 )
 
+// Структура агента.
 type Agent struct {
 	pollInterval   uint
 	reportInterval uint
@@ -27,6 +31,7 @@ type Agent struct {
 	l              *log.Logger
 }
 
+// Создаёт новый экземпляр структуры агента.
 func NewAgent(cfg *config.Config, l *log.Logger) (*Agent, error) {
 	lg := log.StandardLogger()
 	if l != nil {
@@ -46,6 +51,7 @@ func NewAgent(cfg *config.Config, l *log.Logger) (*Agent, error) {
 	}, nil
 }
 
+// Выполняет запуск процессов сканирования и отправки метрик в хранилище.
 func (a *Agent) Run() error {
 	a.l.Info("Agent is running...")
 
@@ -68,7 +74,7 @@ func (a *Agent) Run() error {
 				return nil
 
 			case <-scanTicker.C:
-				metricCh := scanMetrics(ctx)
+				metricCh := ScanMetrics(ctx)
 
 				mtx.Lock()
 
@@ -79,7 +85,7 @@ func (a *Agent) Run() error {
 						return err
 					}
 
-					storage = append(storage, *mtrc.mtrc)
+					storage = append(storage, mtrc.mtrc)
 				}
 
 				scanCount++
@@ -103,7 +109,7 @@ func (a *Agent) Run() error {
 					return err
 				}
 
-				storage = append(storage, *pollCount)
+				storage = append(storage, pollCount)
 				scanCount = 0
 				sndStorage := make([]metric.Metrics, len(storage))
 

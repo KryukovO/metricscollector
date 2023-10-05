@@ -15,6 +15,7 @@ type Context struct {
 	key []byte
 }
 
+// Создает новый контекст.
 func NewContext(ctx echo.Context, key []byte) *Context {
 	return &Context{
 		Context: ctx,
@@ -22,6 +23,7 @@ func NewContext(ctx echo.Context, key []byte) *Context {
 	}
 }
 
+// JSON выполняет отправку ответа в формате JSON с указанным кодом ответа.
 func (c *Context) JSON(code int, i interface{}) error {
 	if c.key != nil {
 		body, err := json.Marshal(i)
@@ -40,6 +42,7 @@ func (c *Context) JSON(code int, i interface{}) error {
 	return c.Context.JSON(code, i)
 }
 
+// HTML выполняет отправку ответа в формате HTML с указанным кодом ответа.
 func (c *Context) HTML(code int, html string) error {
 	if c.key != nil {
 		hash, err := utils.HashSHA256([]byte(html), c.key)

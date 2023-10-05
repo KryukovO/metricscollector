@@ -17,15 +17,19 @@ import (
 )
 
 var (
+	// Возвращается MapStorageHandlers, если контроллер не инициализирован.
 	ErrControllerIsNil = errors.New("controller is nil")
-	ErrRouterIsNil     = errors.New("router is nil")
+	// Возвращается MapStorageHandlers, если маршрутизатор echo не инициализирован.
+	ErrRouterIsNil = errors.New("router is nil")
 )
 
+// Структура контроллера для хранилища.
 type StorageController struct {
 	storage storage.Storage
 	l       *log.Logger
 }
 
+// Создаёт новый контроллер хранилища.
 func NewStorageController(s storage.Storage, l *log.Logger) (*StorageController, error) {
 	if s == nil {
 		return nil, ErrStorageIsNil
@@ -39,6 +43,7 @@ func NewStorageController(s storage.Storage, l *log.Logger) (*StorageController,
 	return &StorageController{storage: s, l: lg}, nil
 }
 
+// Выполняет маппинг маршрутов и обработчиков в маршрутизатор echo.
 func MapStorageHandlers(router *echo.Router, c *StorageController) error {
 	if router == nil {
 		return ErrRouterIsNil
@@ -59,6 +64,8 @@ func MapStorageHandlers(router *echo.Router, c *StorageController) error {
 	return nil
 }
 
+// Обработчик запроса на обновление единственной метрики.
+// Параметры метрики передаются через URL.
 func (c *StorageController) updateHandler(e echo.Context) error {
 	uuid := e.Get("uuid")
 
@@ -114,7 +121,7 @@ func (c *StorageController) updateHandler(e echo.Context) error {
 		return e.NoContent(http.StatusInternalServerError)
 	}
 
-	err = c.storage.Update(e.Request().Context(), mtrc)
+	err = c.storage.Update(e.Request().Context(), &mtrc)
 	if errors.Is(err, metric.ErrWrongMetricName) {
 		c.l.Debugf("[%s] %s", uuid, err.Error())
 
@@ -136,6 +143,8 @@ func (c *StorageController) updateHandler(e echo.Context) error {
 	return e.NoContent(http.StatusOK)
 }
 
+// Обработчик запроса на обновление единственной метрики.
+// Параметры метрики передаются в формате JSON в теле http-запроса.
 func (c *StorageController) updateJSONHandler(e echo.Context) error {
 	uuid := e.Get("uuid")
 
@@ -184,6 +193,8 @@ func (c *StorageController) updateJSONHandler(e echo.Context) error {
 	return e.JSON(http.StatusOK, &mtrc)
 }
 
+// Обработчик запроса на обновление набора метрик.
+// Параметры метрик передаются в формате JSON в теле HTTP-запроса.
 func (c *StorageController) updatesHandler(e echo.Context) error {
 	uuid := e.Get("uuid")
 
@@ -232,6 +243,8 @@ func (c *StorageController) updatesHandler(e echo.Context) error {
 	return e.NoContent(http.StatusOK)
 }
 
+// Обработчик запроса на получение параметров единственной метрики.
+// Параметры запрашиваемой метрики передаются через URL.
 func (c *StorageController) getValueHandler(e echo.Context) error {
 	uuid := e.Get("uuid")
 
@@ -257,6 +270,8 @@ func (c *StorageController) getValueHandler(e echo.Context) error {
 	return e.String(http.StatusOK, strconv.FormatFloat(*v.Value, 'f', -1, 64))
 }
 
+// Обработчик запроса на получение параметров единственной метрики.
+// Параметры запрашиваемой метрики передаются в формате JSON в теле HTTP-запроса.
 func (c *StorageController) getValueJSONHandler(e echo.Context) error {
 	uuid := e.Get("uuid")
 
@@ -294,6 +309,9 @@ func (c *StorageController) getValueJSONHandler(e echo.Context) error {
 	return e.JSON(http.StatusOK, v)
 }
 
+// Обработчик запроса списка всех метрик из хранилища.
+// Результат возвращается в формате HTML
+// и представляет собой таблицу вида: Metric name | Metric type | Value.
 func (c *StorageController) getAllHandler(e echo.Context) error {
 	uuid := e.Get("uuid")
 
@@ -331,6 +349,7 @@ func (c *StorageController) getAllHandler(e echo.Context) error {
 	return e.HTML(http.StatusOK, builder.String())
 }
 
+// Обработчик запроса на проверку доступности хранилища.
 func (c *StorageController) pingHandler(e echo.Context) error {
 	if c.storage.Ping(e.Request().Context()) {
 		return e.NoContent(http.StatusOK)

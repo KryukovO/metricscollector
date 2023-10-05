@@ -34,6 +34,8 @@ linters-settings:
 
   gosec:
     excludes:
+      - G108 # отключаем правило для работы с pprof 
+      - G114 # отключаем правило для работы с pprof через http.ListenAndServe
       - G404 # для проекта возможностей math/rand достаточно, и crypto/rand не нужен
       
   ireturn:

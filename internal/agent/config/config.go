@@ -1,5 +1,6 @@
 package config
 
+// Параметры конфигурации модуля-агента.
 type Config struct {
 	PollInterval   uint   `env:"POLL_INTERVAL"`   // Интервал обновления метрик в секундах
 	ReportInterval uint   `env:"REPORT_INTERVAL"` // Интервал отправки метрик в секундах
@@ -12,6 +13,7 @@ type Config struct {
 	Retries     string // Интервалы попыток соединения с сервером через запятую
 }
 
+// Создаёт новый конфиг агента.
 func NewConfig() *Config {
 	return &Config{}
 }

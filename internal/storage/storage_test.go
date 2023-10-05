@@ -252,6 +252,7 @@ func TestUpdate(t *testing.T) {
 	}
 
 	for _, test := range tests {
+		test := test
 		repo, _, err := newTestRepo(true)
 		require.NoError(t, err)
 
@@ -405,4 +406,72 @@ func TestUpdateMany(t *testing.T) {
 			}
 		})
 	}
+}
+
+func BenchmarkGet(b *testing.B) {
+	ctx := context.Background()
+	repo, mtrc, _ := newTestRepo(false)
+
+	s := MetricsStorage{repo: repo}
+
+	b.Run("getValue", func(b *testing.B) {
+		_, err := s.GetValue(ctx, mtrc[0].MType, mtrc[0].ID)
+		if err != nil {
+			b.Fatal(err)
+		}
+	})
+
+	b.Run("getAll", func(b *testing.B) {
+		_, err := s.GetAll(ctx)
+		if err != nil {
+			b.Fatal(err)
+		}
+	})
+}
+
+func BenchmarkUpdate(b *testing.B) {
+	ctx := context.Background()
+	timeout := 10
+	counterVal := int64(100)
+	gaugeVal := 12345.67
+	mtrc := []metric.Metrics{
+		{
+			ID:    "RandomValue",
+			MType: metric.GaugeMetric,
+			Value: &gaugeVal,
+		},
+		{
+			ID:    "PollCount",
+			MType: metric.CounterMetric,
+			Delta: &counterVal,
+		},
+	}
+
+	b.Run("update", func(b *testing.B) {
+		repo, _, _ := newTestRepo(true)
+		s := NewMetricsStorage(repo, uint(timeout))
+
+		b.ResetTimer()
+
+		for i := 0; i < b.N; i++ {
+			err := s.Update(ctx, &mtrc[0])
+			if err != nil {
+				b.Fatal(err)
+			}
+		}
+	})
+
+	b.Run("updateMany", func(b *testing.B) {
+		repo, _, _ := newTestRepo(true)
+		s := NewMetricsStorage(repo, uint(timeout))
+
+		b.ResetTimer()
+
+		for i := 0; i < b.N; i++ {
+			err := s.UpdateMany(ctx, mtrc)
+			if err != nil {
+				b.Fatal(err)
+			}
+		}
+	})
 }

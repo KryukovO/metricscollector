@@ -7,6 +7,7 @@ import (
 	"time"
 )
 
+// Ожидание в течение d, или пока не будет прерван контекст.
 func Wait(ctx context.Context, d time.Duration) error {
 	if d == 0 {
 		return ctx.Err()
@@ -25,6 +26,7 @@ func Wait(ctx context.Context, d time.Duration) error {
 	}
 }
 
+// Вычисление SHA256 хеша.
 func HashSHA256(src, key []byte) ([]byte, error) {
 	h := hmac.New(sha256.New, key)
 

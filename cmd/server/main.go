@@ -1,3 +1,5 @@
+// Модуль-сервер предназначен для приема метрик от агента
+// и сохранения их в различные хранилища.
 package main
 
 import (
@@ -14,17 +16,17 @@ import (
 )
 
 const (
-	httpAddress     = "localhost:8080"
-	storeInterval   = 300
-	fileStoragePath = "/tmp/metrics-db.json"
-	restore         = true
-	dsn             = ""
-	key             = ""
+	httpAddress     = "localhost:8080"       // Адрес эндпоинта сервера (host:port) по умолчанию
+	storeInterval   = 300                    // Интервал сохранения значения метрик в файл в секундах по умолчанию
+	fileStoragePath = "/tmp/metrics-db.json" // Полное имя файла, куда сохраняются текущие значения метрик по умолчанию
+	restore         = true                   // Признак загрузки значений метрик из файла при запуске сервера по умолчанию
+	dsn             = ""                     // Адрес подключения к БД по умолчанию
+	key             = ""                     // Ключ аутентификации по умолчанию
 
-	storeTimeout    = 5
-	shutdownTimeout = 10
-	retries         = "1,3,5"
-	migrations      = "sql/migrations"
+	storeTimeout    = 5                // Таймаут выполнения операций с хранилищем по умолчанию
+	shutdownTimeout = 10               // Таймаут для graceful shutdown сервера по умолчанию
+	retries         = "1,3,5"          // Интервалы попыток соединения с хранилищем через запятую по умолчанию
+	migrations      = "sql/migrations" // Путь до директории с файлами миграции по умолчанию
 )
 
 func main() {

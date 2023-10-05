@@ -13,12 +13,14 @@ import (
 	"github.com/shirou/gopsutil/mem"
 )
 
+// Структура результата сканирования метрик.
 type ScanResult struct {
-	mtrc *metric.Metrics
+	mtrc metric.Metrics
 	err  error
 }
 
-func scanMetrics(ctx context.Context) chan ScanResult {
+// Выполняет сканирование метрик из различных источников.
+func ScanMetrics(ctx context.Context) chan ScanResult {
 	channels := []chan ScanResult{
 		scanRuntimeMetrics(ctx, rand.New(rand.NewSource(time.Now().UnixNano()))),
 		scanPSUtilMetrics(ctx),
@@ -52,6 +54,7 @@ func scanMetrics(ctx context.Context) chan ScanResult {
 	return outCh
 }
 
+// Выполняет сканирование метрик, относящихся к runtime.
 func scanRuntimeMetrics(ctx context.Context, rnd *rand.Rand) chan ScanResult {
 	outCh := make(chan ScanResult, 1)
 
@@ -114,6 +117,7 @@ func scanRuntimeMetrics(ctx context.Context, rnd *rand.Rand) chan ScanResult {
 	return outCh
 }
 
+// Выполняет сканирование метрик, относящихся к PSUtil.
 func scanPSUtilMetrics(ctx context.Context) chan ScanResult {
 	outCh := make(chan ScanResult, 1)
 

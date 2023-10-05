@@ -629,3 +629,225 @@ func TestGetAllHandler(t *testing.T) {
 		})
 	}
 }
+
+func BenchmarkUpdateHandler(b *testing.B) {
+	timeout := 10
+	params := []string{"mtype", "mname", "value"}
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		b.StopTimer()
+
+		rec := httptest.NewRecorder()
+		ctx, _ := newEchoContext(rec, http.MethodPost, "/update/gauge/Mallocs/100.0001", nil, params)
+		repo, _ := newTestRepo(true)
+
+		s := StorageController{
+			storage: storage.NewMetricsStorage(repo, uint(timeout)),
+			l:       logrus.StandardLogger(),
+		}
+
+		b.StartTimer()
+
+		err := s.updateHandler(ctx)
+		if err != nil {
+			b.Fatal(err)
+		}
+
+		b.StopTimer()
+
+		res := rec.Result()
+		res.Body.Close()
+	}
+}
+
+func BenchmarkUpdateJSONHandler(b *testing.B) {
+	timeout := 10
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		b.StopTimer()
+
+		body := bytes.NewReader([]byte(`{"id":"Mallocs", "type":"gauge", "value":100.0001}`))
+		rec := httptest.NewRecorder()
+		ctx, _ := newEchoContext(rec, http.MethodPost, "/update/", body, nil)
+		repo, _ := newTestRepo(true)
+
+		s := StorageController{
+			storage: storage.NewMetricsStorage(repo, uint(timeout)),
+			l:       logrus.StandardLogger(),
+		}
+
+		b.StartTimer()
+
+		err := s.updateJSONHandler(ctx)
+		if err != nil {
+			b.Fatal(err)
+		}
+
+		b.StopTimer()
+
+		res := rec.Result()
+		res.Body.Close()
+	}
+}
+
+func BenchmarkUpdatesHandler(b *testing.B) {
+	timeout := 10
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		b.StopTimer()
+
+		rec := httptest.NewRecorder()
+		body := bytes.NewReader([]byte(
+			`[{"id":"Mallocs", "type":"gauge", "value":100.0001}, 
+		{"id":"PollCount", "type":"counter", "delta":1}]`,
+		))
+		ctx, _ := newEchoContext(rec, http.MethodPost, "/updates/", body, nil)
+		repo, _ := newTestRepo(true)
+
+		s := StorageController{
+			storage: storage.NewMetricsStorage(repo, uint(timeout)),
+			l:       logrus.StandardLogger(),
+		}
+
+		b.StartTimer()
+
+		err := s.updatesHandler(ctx)
+		if err != nil {
+			b.Fatal(err)
+		}
+
+		b.StopTimer()
+
+		res := rec.Result()
+		res.Body.Close()
+	}
+}
+
+func BenchmarkGetValueHandler(b *testing.B) {
+	timeout := 10
+	params := []string{"mtype", "mname"}
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		b.StopTimer()
+
+		rec := httptest.NewRecorder()
+		ctx, _ := newEchoContext(rec, http.MethodGet, "/value/counter/PollCount", nil, params)
+		repo, _ := newTestRepo(false)
+
+		s := StorageController{
+			storage: storage.NewMetricsStorage(repo, uint(timeout)),
+			l:       logrus.StandardLogger(),
+		}
+
+		b.StartTimer()
+
+		err := s.getValueHandler(ctx)
+		if err != nil {
+			b.Fatal(err)
+		}
+
+		b.StopTimer()
+
+		res := rec.Result()
+		res.Body.Close()
+	}
+}
+
+func BenchmarkGetValueJSONHandler(b *testing.B) {
+	timeout := 10
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		b.StopTimer()
+
+		rec := httptest.NewRecorder()
+		body := bytes.NewReader([]byte(`{"id":"PollCount", "type":"counter"}`))
+		ctx, _ := newEchoContext(rec, http.MethodGet, "/value/", body, nil)
+		repo, _ := newTestRepo(false)
+
+		s := StorageController{
+			storage: storage.NewMetricsStorage(repo, uint(timeout)),
+			l:       logrus.StandardLogger(),
+		}
+
+		b.StartTimer()
+
+		err := s.getValueJSONHandler(ctx)
+		if err != nil {
+			b.Fatal(err)
+		}
+
+		b.StopTimer()
+
+		res := rec.Result()
+		res.Body.Close()
+	}
+}
+
+func BenchmarkGetAllHandler(b *testing.B) {
+	timeout := 10
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		b.StopTimer()
+
+		rec := httptest.NewRecorder()
+		ctx, _ := newEchoContext(rec, http.MethodGet, "/", nil, nil)
+		repo, _ := newTestRepo(false)
+
+		s := StorageController{
+			storage: storage.NewMetricsStorage(repo, uint(timeout)),
+			l:       logrus.StandardLogger(),
+		}
+
+		b.StartTimer()
+
+		err := s.getAllHandler(ctx)
+		if err != nil {
+			b.Fatal(err)
+		}
+
+		b.StopTimer()
+
+		res := rec.Result()
+		res.Body.Close()
+	}
+}
+
+func Example() {
+	// Инициализация логгера.
+	lg := logrus.StandardLogger()
+
+	// Инициализация инстанса сервера echo.
+	e := echo.New()
+
+	// Инициализация хранилища.
+	repo, err := memstorage.NewMemStorage(context.Background(), "path/to/file", true, 10, []int{1, 2, 3}, lg)
+	if err != nil {
+		panic(err)
+	}
+
+	stor := storage.NewMetricsStorage(repo, 10)
+	defer func() {
+		stor.Close()
+
+		lg.Info("Repository closed")
+	}()
+
+	// Маппинг обработчиков в инстанс echo.
+	if err := SetHandlers(e, stor, []byte("key"), lg); err != nil {
+		panic(err)
+	}
+
+	// Output:
+}
