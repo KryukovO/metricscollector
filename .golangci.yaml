@@ -1,6 +1,11 @@
+run:
+  skip-dirs:
+    - tools/exitmaincheck # Специфика кода статического анализатора нарушает правила линтеров
+
 issues:
   exclude:
     - "Error return value of `tx.Rollback` is not checked" # В этом проекте нет смысла проверять успешность отката транзакции
+  
 
 linters:
   enable-all: true
