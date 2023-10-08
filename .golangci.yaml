@@ -1,6 +1,6 @@
 run:
   skip-dirs:
-    - tools/exitmaincheck # Специфика кода статического анализатора нарушает правила линтеров
+    - internal/exitmaincheck # Специфика кода статического анализатора нарушает правила линтеров
 
 issues:
   exclude:

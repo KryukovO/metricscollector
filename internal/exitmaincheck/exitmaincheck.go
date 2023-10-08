@@ -1,3 +1,5 @@
+// Package exitmaincheck содержит анализатор, предназначенный для выявления
+// использования функции os.Exit в функции main() пакета main.
 package exitmaincheck
 
 import (

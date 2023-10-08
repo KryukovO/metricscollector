@@ -1,9 +1,9 @@
-.PHONY: build test cover cover-html bench lint
+.PHONY: build test cover cover-html bench lint static
 
 build:
 	go build -o cmd/agent/agent cmd/agent/main.go
 	go build -o cmd/server/server cmd/server/main.go
-	go build -o cmd/analyser/analyser cmd/analyser/main.go
+	go build -o cmd/staticlint/staticlint cmd/staticlint/main.go
 
 test:
 	go test -v -timeout 30s -race ./...
@@ -23,3 +23,6 @@ bench:
 
 lint:
 	golangci-lint run ./...
+
+static:
+	./cmd/staticlint/staticlint ./...

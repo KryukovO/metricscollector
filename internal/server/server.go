@@ -1,3 +1,4 @@
+// Package server содержит реализацию модуля-сервера.
 package server
 
 import (
@@ -22,13 +23,13 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-// Структура сервера.
+// Server - структура сервера.
 type Server struct {
 	cfg *config.Config
 	l   *log.Logger
 }
 
-// СОздаёт новую структуру сервера.
+// NewServer создаёт новый объект структуры сервера.
 func NewServer(cfg *config.Config, l *log.Logger) *Server {
 	lg := log.StandardLogger()
 	if l != nil {
@@ -41,7 +42,7 @@ func NewServer(cfg *config.Config, l *log.Logger) *Server {
 	}
 }
 
-// Инициирует запуск HTTP-сервера и хранилища.
+// Run инициирует запуск HTTP-сервера и хранилища.
 func (s *Server) Run(ctx context.Context) error {
 	// Инициализация хранилища
 	var (

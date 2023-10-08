@@ -1,3 +1,4 @@
+// Package handlers содержит обработчики http-запросов к серверу.
 package handlers
 
 import (
@@ -10,13 +11,13 @@ import (
 )
 
 var (
-	// Возвращается SetHandlers, если передан неициализированный инстанс echo.
+	// ErrServerIsNil возвращается SetHandlers, если передан неициализированный инстанс echo.
 	ErrServerIsNil = errors.New("server instance is nil")
-	// Возвращается SetHandlers и NewStorageController, если передано неинициализированное хранилище.
+	// ErrStorageIsNil возвращается SetHandlers и NewStorageController, если передано неинициализированное хранилище.
 	ErrStorageIsNil = errors.New("storage is nil")
 )
 
-// Инициирует маппинг маршрутов и обработчиков в инстанс echo,
+// SetHandlers инициирует маппинг маршрутов и обработчиков в инстанс echo,
 // а также выстраивает цепочку middleware.
 func SetHandlers(e *echo.Echo, s storage.Storage, key []byte, l *log.Logger) error {
 	if e == nil {

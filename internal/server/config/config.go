@@ -1,6 +1,7 @@
+// Package config описывает конфигурацию модуля-сервера.
 package config
 
-// Параметры конфигурации модуля-сервера.
+// Config содержит параметры конфигурации модуля-сервера.
 type Config struct {
 	HTTPAddress     string `env:"ADDRESS"`           // Адрес эндпоинта сервера (host:port)
 	StoreInterval   uint   `env:"STORE_INTERVAL"`    // Интервал сохранения значения метрик в файл в секундах
@@ -15,7 +16,7 @@ type Config struct {
 	Migrations      string // Путь до директории с файлами миграции
 }
 
-// Создаёт новый конфиг сервера.
+// NewConfig создаёт новый конфиг сервера.
 func NewConfig() *Config {
 	return &Config{}
 }

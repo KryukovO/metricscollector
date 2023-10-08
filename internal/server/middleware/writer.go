@@ -14,7 +14,7 @@ type CompressWriter struct {
 	acceptTypes []string // Допустимые для сжатия форматы тела ответа
 }
 
-// Создаёт новый CompressWriter.
+// NewCompressWriter создаёт новый CompressWriter.
 func NewCompressWriter(w http.ResponseWriter, acceptTypes []string) *CompressWriter {
 	return &CompressWriter{
 		ResponseWriter: w,
@@ -23,7 +23,7 @@ func NewCompressWriter(w http.ResponseWriter, acceptTypes []string) *CompressWri
 	}
 }
 
-// Выполняет запись сжатых данных из p в нижележащий Writer.
+// Write выполняет запись сжатых данных из p в нижележащий Writer.
 func (c *CompressWriter) Write(p []byte) (int, error) {
 	defer c.Close()
 
@@ -38,7 +38,7 @@ func (c *CompressWriter) Write(p []byte) (int, error) {
 	return c.ResponseWriter.Write(p)
 }
 
-// Выполняет отправку HTTP-ответа с определенным кодом ответа.
+// WriteHeader выполняет отправку HTTP-ответа с определенным кодом ответа.
 func (c *CompressWriter) WriteHeader(statusCode int) {
 	// Добавляем заголовок с информацией о сжатии только,
 	// если формат тела ответа допустим для сжатия
@@ -54,7 +54,7 @@ func (c *CompressWriter) WriteHeader(statusCode int) {
 	c.ResponseWriter.WriteHeader(statusCode)
 }
 
-// Закрывает CompressWriter.
+// Close закрывает CompressWriter.
 func (c *CompressWriter) Close() error {
 	return c.zw.Close()
 }

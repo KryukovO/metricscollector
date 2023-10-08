@@ -22,7 +22,7 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-// Структура для взаимодействия с сервером-хранилищем.
+// Sender предоставляет функционал взаимодействия с сервером-хранилищем.
 type Sender struct {
 	serverAddress string
 	rateLimit     uint
@@ -33,7 +33,7 @@ type Sender struct {
 	l             *log.Logger
 }
 
-// Создаёт новый объект структуры для взаимодействия с сервером-хранилищем.
+// NewSender создаёт новый объект Sender.
 func NewSender(cfg *config.Config, l *log.Logger) (*Sender, error) {
 	lg := log.StandardLogger()
 	if l != nil {
@@ -62,7 +62,7 @@ func NewSender(cfg *config.Config, l *log.Logger) (*Sender, error) {
 	}, nil
 }
 
-// Инициирует отправку набора метрик в хранилище.
+// Send инициирует отправку набора метрик в хранилище.
 func (snd *Sender) Send(ctx context.Context, storage []metric.Metrics) error {
 	if storage == nil {
 		return ErrStorageIsNil
@@ -82,7 +82,7 @@ func (snd *Sender) Send(ctx context.Context, storage []metric.Metrics) error {
 	return g.Wait()
 }
 
-// Разбивает набор метрик на батчи определенного размера.
+// generateSendTasks разбивает набор метрик на батчи определенного размера.
 // Передаёт батчи через возвращаемый канал.
 func (snd *Sender) generateSendTasks(ctx context.Context, storage []metric.Metrics) chan []metric.Metrics {
 	outCh := make(chan []metric.Metrics, snd.rateLimit)
@@ -118,7 +118,7 @@ func (snd *Sender) generateSendTasks(ctx context.Context, storage []metric.Metri
 	return outCh
 }
 
-// Выполняет сканирование канала на наличие в нем сообщений, содержащих метрики,
+// sendTaskWorker выполняет сканирование канала на наличие в нем сообщений, содержащих метрики,
 // и инициирует отправку их в хранилище посредством HTTP.
 func (snd *Sender) sendTaskWorker(ctx context.Context, id int, tasks <-chan []metric.Metrics) error {
 	var (
@@ -165,7 +165,7 @@ func (snd *Sender) sendTaskWorker(ctx context.Context, id int, tasks <-chan []me
 	return nil
 }
 
-// Выполняет отправку метрик посредством HTTP.
+// sendMetrics выполняет отправку метрик посредством HTTP.
 func (snd *Sender) sendMetrics(ctx context.Context, client *http.Client, batch []metric.Metrics) error {
 	if client == nil {
 		return ErrClientIsNil
