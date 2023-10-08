@@ -5,6 +5,7 @@ package main
 import (
 	"errors"
 	"flag"
+	"fmt"
 	"net/http"
 
 	"github.com/KryukovO/metricscollector/internal/agent"
@@ -14,6 +15,15 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	_ "net/http/pprof"
+)
+
+var (
+	// buildVersion представляет собой хранилище значения ldflag - версия сборки.
+	buildVersion = "N/A"
+	// buildDate представляет собой хранилище значения ldflag - дата сборки.
+	buildDate = "N/A"
+	// buildCommit представляет собой хранилище значения ldflag - комментарий к сборке.
+	buildCommit = "N/A"
 )
 
 const (
@@ -29,6 +39,11 @@ const (
 )
 
 func main() {
+	fmt.Printf(
+		"Build version: %s\nBuild date: %s\nBuild commit: %s\n",
+		buildVersion, buildDate, buildCommit,
+	)
+
 	cfg := config.NewConfig()
 
 	flag.StringVar(&cfg.ServerAddress, "a", serverAddress, "Server endpoint address")

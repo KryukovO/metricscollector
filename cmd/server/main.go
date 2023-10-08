@@ -5,6 +5,7 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 
 	"github.com/KryukovO/metricscollector/internal/server"
 	"github.com/KryukovO/metricscollector/internal/server/config"
@@ -14,6 +15,15 @@ import (
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	log "github.com/sirupsen/logrus"
+)
+
+var (
+	// buildVersion представляет собой хранилище значения ldflag - версия сборки.
+	buildVersion = "N/A"
+	// buildDate представляет собой хранилище значения ldflag - дата сборки.
+	buildDate = "N/A"
+	// buildCommit представляет собой хранилище значения ldflag - комментарий к сборке.
+	buildCommit = "N/A"
 )
 
 const (
@@ -31,6 +41,11 @@ const (
 )
 
 func main() {
+	fmt.Printf(
+		"Build version: %s\nBuild date: %s\nBuild commit: %s\n",
+		buildVersion, buildDate, buildCommit,
+	)
+
 	cfg := config.NewConfig()
 
 	flag.StringVar(&cfg.HTTPAddress, "a", httpAddress, "Server endpoint address")
