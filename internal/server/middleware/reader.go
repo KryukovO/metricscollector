@@ -12,7 +12,7 @@ type CompressReader struct {
 	zr *gzip.Reader
 }
 
-// Создаёт новую структуру CompressReader.
+// NewCompressReader создаёт новый объект CompressReader.
 func NewCompressReader(r io.ReadCloser) (*CompressReader, error) {
 	zr, err := gzip.NewReader(r)
 	if err != nil {
@@ -25,12 +25,12 @@ func NewCompressReader(r io.ReadCloser) (*CompressReader, error) {
 	}, nil
 }
 
-// Выполняет чтение несжатых байт.
+// Read выполняет чтение несжатых байт.
 func (c CompressReader) Read(p []byte) (int, error) {
 	return c.zr.Read(p)
 }
 
-// Закрывает CompressReader.
+// Close pакрывает CompressReader.
 func (c *CompressReader) Close() error {
 	if err := c.r.Close(); err != nil {
 		return err

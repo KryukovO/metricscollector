@@ -20,6 +20,7 @@ require (
 )
 
 require (
+	github.com/BurntSushi/toml v1.2.1 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/docker/docker v24.0.2+incompatible // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
