@@ -38,6 +38,9 @@ linters-settings:
   cyclop:
     max-complexity: 15 # По умолчанию 10, но нужно будет время, чтобы отрефакторить некоторые функции и методы
 
+  errcheck:
+    ignore: Write
+
   gosec:
     excludes:
       - G108 # отключаем правило для работы с pprof 

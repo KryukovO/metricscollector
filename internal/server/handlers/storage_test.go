@@ -650,6 +650,7 @@ func TestPing(t *testing.T) {
 
 	repo, err := newTestRepo(false)
 	require.NoError(t, err)
+
 	s := StorageController{
 		storage: storage.NewMetricsStorage(repo, uint(timeout)),
 		l:       logrus.StandardLogger(),
