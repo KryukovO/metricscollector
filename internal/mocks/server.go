@@ -19,8 +19,8 @@ func NewMockServer() *MockServer {
 	}
 }
 
-func (a MockServer) Close() {
-	a.Server.Close()
+func (s MockServer) Close() {
+	s.Server.Close()
 }
 
 func updatesHandler(w http.ResponseWriter, r *http.Request) {
