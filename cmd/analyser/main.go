@@ -66,7 +66,7 @@ func main() {
 		// Анализатор contextcheck
 		contextcheck.NewAnalyzer(
 			contextcheck.Configuration{
-				DisableFact: false,
+				DisableFact: true,
 			},
 		),
 

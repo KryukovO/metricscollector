@@ -307,7 +307,7 @@ func (s *PgStorage) Ping(ctx context.Context) error {
 			return err
 		}
 
-		err = s.db.Ping()
+		err = s.db.PingContext(ctx)
 
 		var pgErr *pgconn.PgError
 		if err == nil || !errors.As(err, &pgErr) || !pgerrcode.IsConnectionException(pgErr.Code) {

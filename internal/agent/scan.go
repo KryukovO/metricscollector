@@ -126,7 +126,7 @@ func scanPSUtilMetrics(ctx context.Context) chan ScanResult {
 
 		buf := make(map[string]interface{})
 
-		vmStat, err := mem.VirtualMemory()
+		vmStat, err := mem.VirtualMemoryWithContext(ctx)
 		if err != nil {
 			outCh <- ScanResult{err: err}
 
@@ -136,7 +136,7 @@ func scanPSUtilMetrics(ctx context.Context) chan ScanResult {
 		buf["TotalMemory"] = float64(vmStat.Total)
 		buf["FreeMemory"] = float64(vmStat.Free)
 
-		cpuStat, err := cpu.Times(true)
+		cpuStat, err := cpu.TimesWithContext(ctx, true)
 		if err != nil {
 			outCh <- ScanResult{err: err}
 

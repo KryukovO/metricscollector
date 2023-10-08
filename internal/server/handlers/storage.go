@@ -90,11 +90,11 @@ func (c *StorageController) updateHandler(e echo.Context) error {
 		err error
 	)
 
-	if counterVal, err := strconv.ParseInt(value, 10, 64); err == nil {
+	if counterVal, parseIntErr := strconv.ParseInt(value, 10, 64); parseIntErr == nil {
 		val = counterVal
 	} else {
-		gaugeVal, err := strconv.ParseFloat(value, 64)
-		if err != nil {
+		gaugeVal, parseFloatErr := strconv.ParseFloat(value, 64)
+		if parseFloatErr != nil {
 			c.l.Debugf("[%s] %s", uuid, metric.ErrWrongMetricValue.Error())
 
 			return e.NoContent(http.StatusBadRequest)

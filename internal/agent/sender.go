@@ -132,10 +132,10 @@ func (snd *Sender) sendTaskWorker(ctx context.Context, id int, tasks <-chan []me
 			return nil
 		default:
 			send := func() error {
-				ctx, cancel := context.WithTimeout(ctx, snd.httpTimeout)
+				sendCtx, cancel := context.WithTimeout(ctx, snd.httpTimeout)
 				defer cancel()
 
-				return snd.sendMetrics(ctx, &client, batch)
+				return snd.sendMetrics(sendCtx, &client, batch)
 			}
 
 			for _, t := range snd.retries {
@@ -196,9 +196,9 @@ func (snd *Sender) sendMetrics(ctx context.Context, client *http.Client, batch [
 	req.Header.Set("Content-Encoding", "gzip")
 
 	if snd.key != "" {
-		hash, err := utils.HashSHA256(body, []byte(snd.key))
-		if err != nil {
-			return err
+		hash, hashErr := utils.HashSHA256(body, []byte(snd.key))
+		if hashErr != nil {
+			return hashErr
 		}
 
 		req.Header.Set("HashSHA256", hex.EncodeToString(hash))

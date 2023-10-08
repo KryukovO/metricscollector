@@ -56,7 +56,7 @@ func NewMemStorage(
 	}
 
 	if file != "" && storeInterval > 0 {
-		saveCtx, cancel := context.WithCancel(context.Background())
+		saveCtx, cancel := context.WithCancel(ctx)
 		s.closeSave = cancel
 		ticker := time.NewTicker(time.Duration(storeInterval) * time.Second)
 

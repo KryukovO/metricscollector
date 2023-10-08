@@ -3,6 +3,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 
 	"github.com/KryukovO/metricscollector/internal/server"
@@ -59,7 +60,7 @@ func main() {
 	}
 
 	s := server.NewServer(cfg, l)
-	if err := s.Run(); err != nil {
+	if err := s.Run(context.Background()); err != nil {
 		l.Fatalf("Server error: %s. Exit(1)", err.Error())
 	}
 }
