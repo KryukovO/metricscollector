@@ -171,7 +171,11 @@ func (snd *Sender) sendMetrics(ctx context.Context, client *http.Client, batch [
 		return ErrClientIsNil
 	}
 
-	url := fmt.Sprintf("http://%s/updates/", snd.serverAddress)
+	url := fmt.Sprintf("%s/updates/", snd.serverAddress)
+
+	if !strings.HasPrefix(url, "http://") {
+		url = fmt.Sprintf("http://%s", url)
+	}
 
 	body, err := json.Marshal(batch)
 	if err != nil {

@@ -77,11 +77,6 @@ func (c *StorageController) updateHandler(e echo.Context) error {
 	}
 
 	mName := e.Param("mname")
-	if mName == "" {
-		c.l.Debugf("[%s] %s", uuid, metric.ErrWrongMetricName)
-
-		return e.NoContent(http.StatusNotFound)
-	}
 
 	value := e.Param("value")
 
