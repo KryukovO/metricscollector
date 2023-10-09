@@ -1,3 +1,4 @@
+// Package pgstorage содержит хранилище метрик, реализованное в репозитории PostgreSQL.
 package pgstorage
 
 import (
@@ -15,13 +16,13 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
-// Хранилище метрик в репозитории PostgreSQL.
+// PgStorage - хранилище метрик в репозитории PostgreSQL.
 type PgStorage struct {
 	db      *sql.DB
 	retries []int
 }
 
-// Создаёт новое подключение к репозиторию PostgreSQL.
+// NewPgStorage - создаёт новое подключение к репозиторию PostgreSQL.
 func NewPgStorage(ctx context.Context, dsn, migrations string, retries []int) (*PgStorage, error) {
 	db, err := sql.Open("pgx", dsn)
 	if err != nil {
@@ -46,7 +47,7 @@ func NewPgStorage(ctx context.Context, dsn, migrations string, retries []int) (*
 	return s, nil
 }
 
-// Выполняет миграцию базы данных.
+// runMigrations выполняет миграцию базы данных.
 func (s *PgStorage) runMigrations(dsn, migrations string) error {
 	m, err := migrate.New(
 		fmt.Sprintf("file://%s", migrations),
@@ -63,7 +64,7 @@ func (s *PgStorage) runMigrations(dsn, migrations string) error {
 	return nil
 }
 
-// Возвращает все метрики, находящиеся в репозитории.
+// GetAll возвращает все метрики, находящиеся в репозитории.
 func (s *PgStorage) GetAll(ctx context.Context) ([]metric.Metrics, error) {
 	slct := func() ([]metric.Metrics, error) {
 		query := `
@@ -134,7 +135,7 @@ func (s *PgStorage) GetAll(ctx context.Context) ([]metric.Metrics, error) {
 	return res, nil
 }
 
-// Возвращает определенную метрику, соответствующую параметрам mType и mName.
+// GetValue возвращает определенную метрику, соответствующую параметрам mType и mName.
 func (s *PgStorage) GetValue(ctx context.Context, mType string, mName string) (*metric.Metrics, error) {
 	slct := func() (*metric.Metrics, error) {
 		query := `
@@ -193,7 +194,7 @@ func (s *PgStorage) GetValue(ctx context.Context, mType string, mName string) (*
 	return mtrc, nil
 }
 
-// Выполняет обновление единственной метрики.
+// Update выполняет обновление единственной метрики.
 func (s *PgStorage) Update(ctx context.Context, mtrc *metric.Metrics) error {
 	insert := func() (sql.NullInt64, error) {
 		query := `
@@ -248,7 +249,7 @@ func (s *PgStorage) Update(ctx context.Context, mtrc *metric.Metrics) error {
 	return nil
 }
 
-// Выполняет обновление метрик из набора.
+// UpdateMany выполняет обновление метрик из набора.
 func (s *PgStorage) UpdateMany(ctx context.Context, mtrcs []metric.Metrics) error {
 	insert := func() error {
 		query := `
@@ -298,7 +299,7 @@ func (s *PgStorage) UpdateMany(ctx context.Context, mtrcs []metric.Metrics) erro
 	return err
 }
 
-// Выполняет проверку доступности репозитория.
+// Ping выполняет проверку доступности репозитория.
 func (s *PgStorage) Ping(ctx context.Context) error {
 	var err error
 	for _, t := range s.retries {
@@ -307,7 +308,7 @@ func (s *PgStorage) Ping(ctx context.Context) error {
 			return err
 		}
 
-		err = s.db.Ping()
+		err = s.db.PingContext(ctx)
 
 		var pgErr *pgconn.PgError
 		if err == nil || !errors.As(err, &pgErr) || !pgerrcode.IsConnectionException(pgErr.Code) {
@@ -318,7 +319,7 @@ func (s *PgStorage) Ping(ctx context.Context) error {
 	return err
 }
 
-// Выполняет закрытие репозитория.
+// Close выполняет закрытие репозитория.
 func (s *PgStorage) Close() error {
 	return s.db.Close()
 }

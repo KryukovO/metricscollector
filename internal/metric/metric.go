@@ -1,3 +1,4 @@
+// Package metric содержит описание метрики.
 package metric
 
 import (
@@ -10,12 +11,15 @@ const (
 )
 
 var (
-	ErrWrongMetricType  = errors.New("wrong metric type")
-	ErrWrongMetricName  = errors.New("wrong metric name")
+	// ErrWrongMetricType возвращается, если метрика содержит некорректный тип.
+	ErrWrongMetricType = errors.New("wrong metric type")
+	// ErrWrongMetricType возвращается, если метрика содержит некорректное имя.
+	ErrWrongMetricName = errors.New("wrong metric name")
+	// ErrWrongMetricType возвращается, если тип значения метрики не соответствует её типу.
 	ErrWrongMetricValue = errors.New("wrong metric value")
 )
 
-// Структура метрики.
+// Metrics описывает структуру метрики.
 type Metrics struct {
 	ID    string   `json:"id"`              // Имя метрики
 	MType string   `json:"type"`            // Тип метрики (gauge или counter)
@@ -23,7 +27,7 @@ type Metrics struct {
 	Value *float64 `json:"value,omitempty"` // Значение метрики в случае передачи gauge
 }
 
-// Создает структуру метрики.
+// NewMetrics создает структуру метрики.
 //
 // Если параметр mType не заполнен, тип метрики определяется по переданному значению value:
 // float64 => gauge; int64 => counter.
@@ -90,6 +94,7 @@ func newMetricsByValue(mName string, value interface{}) (Metrics, error) {
 	}
 }
 
+// Validate осуществляет валидацию метрики.
 func (mtrc *Metrics) Validate() error {
 	if mtrc.ID == "" {
 		return ErrWrongMetricName

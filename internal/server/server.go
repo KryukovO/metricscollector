@@ -1,3 +1,4 @@
+// Package server содержит реализацию модуля-сервера.
 package server
 
 import (
@@ -22,13 +23,13 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-// Структура сервера.
+// Server - структура сервера.
 type Server struct {
 	cfg *config.Config
 	l   *log.Logger
 }
 
-// СОздаёт новую структуру сервера.
+// NewServer создаёт новый объект структуры сервера.
 func NewServer(cfg *config.Config, l *log.Logger) *Server {
 	lg := log.StandardLogger()
 	if l != nil {
@@ -41,8 +42,8 @@ func NewServer(cfg *config.Config, l *log.Logger) *Server {
 	}
 }
 
-// Инициирует запуск HTTP-сервера и хранилища.
-func (s *Server) Run() error {
+// Run инициирует запуск HTTP-сервера и хранилища.
+func (s *Server) Run(ctx context.Context) error {
 	// Инициализация хранилища
 	var (
 		repo storage.Repo
@@ -52,26 +53,26 @@ func (s *Server) Run() error {
 	retries := []int{0}
 
 	for _, r := range strings.Split(s.cfg.Retries, ",") {
-		interval, err := strconv.Atoi(r)
-		if err != nil {
-			return err
+		interval, conertErr := strconv.Atoi(r)
+		if conertErr != nil {
+			return conertErr
 		}
 
 		retries = append(retries, interval)
 	}
 
-	sigCtx, sigCancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	sigCtx, sigCancel := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
 	defer sigCancel()
 
-	ctx, cancel := context.WithTimeout(sigCtx, time.Duration(s.cfg.StoreTimeout)*time.Second)
+	repoCtx, cancel := context.WithTimeout(sigCtx, time.Duration(s.cfg.StoreTimeout)*time.Second)
 	defer cancel()
 
 	s.l.Info("Connecting to the repository...")
 
 	if s.cfg.DSN != "" {
-		repo, err = pgstorage.NewPgStorage(ctx, s.cfg.DSN, s.cfg.Migrations, retries)
+		repo, err = pgstorage.NewPgStorage(repoCtx, s.cfg.DSN, s.cfg.Migrations, retries)
 	} else {
-		repo, err = memstorage.NewMemStorage(ctx, s.cfg.FileStoragePath, s.cfg.Restore, s.cfg.StoreInterval, retries, s.l)
+		repo, err = memstorage.NewMemStorage(repoCtx, s.cfg.FileStoragePath, s.cfg.Restore, s.cfg.StoreInterval, retries, s.l)
 	}
 
 	if err != nil {
@@ -95,7 +96,7 @@ func (s *Server) Run() error {
 		return err
 	}
 
-	g, groupCtx := errgroup.WithContext(context.Background())
+	g, groupCtx := errgroup.WithContext(ctx)
 
 	// Запуск сервера
 	g.Go(func() error {
@@ -118,7 +119,7 @@ func (s *Server) Run() error {
 
 		s.l.Info("Stopping server...")
 
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), time.Duration(s.cfg.ShutdownTimeout)*time.Second)
+		shutdownCtx, cancel := context.WithTimeout(ctx, time.Duration(s.cfg.ShutdownTimeout)*time.Second)
 		defer cancel()
 
 		if err := e.Shutdown(shutdownCtx); err != nil {

@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func newTestRepo(clear bool) (*memstorage.MemStorage, []metric.Metrics, error) {
+func newTestRepo(ctx context.Context, clear bool) (*memstorage.MemStorage, []metric.Metrics, error) {
 	var (
 		retries          = []int{0}
 		counterVal int64 = 100
@@ -18,7 +18,7 @@ func newTestRepo(clear bool) (*memstorage.MemStorage, []metric.Metrics, error) {
 		stor       []metric.Metrics
 	)
 
-	repo, err := memstorage.NewMemStorage(context.Background(), "", false, 0, retries, nil)
+	repo, err := memstorage.NewMemStorage(ctx, "", false, 0, retries, nil)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -37,12 +37,12 @@ func newTestRepo(clear bool) (*memstorage.MemStorage, []metric.Metrics, error) {
 			},
 		}
 
-		err = repo.Update(context.Background(), &stor[0])
+		err = repo.Update(ctx, &stor[0])
 		if err != nil {
 			return nil, nil, err
 		}
 
-		err = repo.Update(context.Background(), &stor[1])
+		err = repo.Update(ctx, &stor[1])
 		if err != nil {
 			return nil, nil, err
 		}
@@ -52,7 +52,7 @@ func newTestRepo(clear bool) (*memstorage.MemStorage, []metric.Metrics, error) {
 }
 
 func TestGetAll(t *testing.T) {
-	repo, stor, err := newTestRepo(false)
+	repo, stor, err := newTestRepo(context.Background(), false)
 	require.NoError(t, err)
 
 	s := MetricsStorage{repo: repo}
@@ -149,7 +149,7 @@ func TestGetValue(t *testing.T) {
 		},
 	}
 
-	repo, _, err := newTestRepo(false)
+	repo, _, err := newTestRepo(context.Background(), false)
 	require.NoError(t, err)
 
 	s := NewMetricsStorage(repo, uint(timeout))
@@ -253,7 +253,7 @@ func TestUpdate(t *testing.T) {
 
 	for _, test := range tests {
 		test := test
-		repo, _, err := newTestRepo(true)
+		repo, _, err := newTestRepo(context.Background(), true)
 		require.NoError(t, err)
 
 		s := NewMetricsStorage(repo, uint(timeout))
@@ -263,13 +263,13 @@ func TestUpdate(t *testing.T) {
 
 			if test.wantErr {
 				assert.Error(t, err)
-				stor, err := repo.GetAll(context.Background())
-				require.NoError(t, err)
+				stor, getErr := repo.GetAll(context.Background())
+				require.NoError(t, getErr)
 				assert.Equal(t, true, len(stor) == 0, "The update returned an error, but the value was saved")
 			} else {
 				assert.NoError(t, err)
-				stor, err := repo.GetAll(context.Background())
-				require.NoError(t, err)
+				stor, getErr := repo.GetAll(context.Background())
+				require.NoError(t, getErr)
 				require.Equal(t, true, len(stor) == 1, "The update was successful, but the value was not saved")
 				v := stor[0]
 				if test.arg.Delta != nil {
@@ -384,7 +384,7 @@ func TestUpdateMany(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		repo, _, err := newTestRepo(true)
+		repo, _, err := newTestRepo(context.Background(), true)
 		require.NoError(t, err)
 
 		s := NewMetricsStorage(repo, uint(timeout))
@@ -394,13 +394,13 @@ func TestUpdateMany(t *testing.T) {
 
 			if test.wantErr {
 				assert.Error(t, err)
-				stor, err := repo.GetAll(context.Background())
-				require.NoError(t, err)
+				stor, getErr := repo.GetAll(context.Background())
+				require.NoError(t, getErr)
 				assert.Equal(t, true, len(stor) == 0, "The update returned an error, but the value was saved")
 			} else {
 				assert.NoError(t, err)
-				stor, err := repo.GetAll(context.Background())
-				require.NoError(t, err)
+				stor, getErr := repo.GetAll(context.Background())
+				require.NoError(t, getErr)
 				require.Equal(t, true, len(stor) == len(test.arg), "The update was successful, but the value was not saved")
 				assert.EqualValues(t, test.arg, stor, "Saved value '%+v' is not equal to expected '%+v'", stor, test.arg)
 			}
@@ -410,7 +410,7 @@ func TestUpdateMany(t *testing.T) {
 
 func BenchmarkGet(b *testing.B) {
 	ctx := context.Background()
-	repo, mtrc, _ := newTestRepo(false)
+	repo, mtrc, _ := newTestRepo(context.Background(), false)
 
 	s := MetricsStorage{repo: repo}
 
@@ -448,7 +448,7 @@ func BenchmarkUpdate(b *testing.B) {
 	}
 
 	b.Run("update", func(b *testing.B) {
-		repo, _, _ := newTestRepo(true)
+		repo, _, _ := newTestRepo(ctx, true)
 		s := NewMetricsStorage(repo, uint(timeout))
 
 		b.ResetTimer()
@@ -462,7 +462,7 @@ func BenchmarkUpdate(b *testing.B) {
 	})
 
 	b.Run("updateMany", func(b *testing.B) {
-		repo, _, _ := newTestRepo(true)
+		repo, _, _ := newTestRepo(ctx, true)
 		s := NewMetricsStorage(repo, uint(timeout))
 
 		b.ResetTimer()

@@ -1,3 +1,4 @@
+// Package agent содержит реализацию модуля-агента.
 package agent
 
 import (
@@ -23,7 +24,7 @@ var (
 	ErrUnexpectedStatus = errors.New("unexpected response status")
 )
 
-// Структура агента.
+// Agent содержит основные параметры агента.
 type Agent struct {
 	pollInterval   uint
 	reportInterval uint
@@ -31,7 +32,7 @@ type Agent struct {
 	l              *log.Logger
 }
 
-// Создаёт новый экземпляр структуры агента.
+// NewAgent создаёт новый экземпляр структуры агента.
 func NewAgent(cfg *config.Config, l *log.Logger) (*Agent, error) {
 	lg := log.StandardLogger()
 	if l != nil {
@@ -51,7 +52,7 @@ func NewAgent(cfg *config.Config, l *log.Logger) (*Agent, error) {
 	}, nil
 }
 
-// Выполняет запуск процессов сканирования и отправки метрик в хранилище.
+// Run выполняет запуск процессов сканирования и отправки метрик в хранилище.
 func (a *Agent) Run() error {
 	a.l.Info("Agent is running...")
 

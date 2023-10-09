@@ -431,9 +431,20 @@ func TestGetValueHandler(t *testing.T) {
 		want want
 	}{
 		{
-			name: "Correct test",
+			name: "Correct test for counter",
 			args: args{
 				url:    "/value/counter/PollCount",
+				method: http.MethodGet,
+			},
+			want: want{
+				status:      http.StatusOK,
+				contentType: "text/plain; charset=UTF-8",
+			},
+		},
+		{
+			name: "Correct test for gauge",
+			args: args{
+				url:    "/value/gauge/RandomValue",
 				method: http.MethodGet,
 			},
 			want: want{
@@ -628,6 +639,29 @@ func TestGetAllHandler(t *testing.T) {
 			assert.Equal(t, rowWant, string(rowRes))
 		})
 	}
+}
+
+func TestPing(t *testing.T) {
+	timeout := 10
+
+	rec := httptest.NewRecorder()
+	ctx, err := newEchoContext(rec, http.MethodGet, "/ping", nil, nil)
+	require.NoError(t, err)
+
+	repo, err := newTestRepo(false)
+	require.NoError(t, err)
+
+	s := StorageController{
+		storage: storage.NewMetricsStorage(repo, uint(timeout)),
+		l:       logrus.StandardLogger(),
+	}
+	err = s.pingHandler(ctx)
+	require.NoError(t, err)
+
+	res := rec.Result()
+	defer res.Body.Close()
+
+	assert.Equal(t, http.StatusOK, res.StatusCode)
 }
 
 func BenchmarkUpdateHandler(b *testing.B) {

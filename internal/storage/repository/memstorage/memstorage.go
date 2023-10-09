@@ -1,3 +1,4 @@
+// Package memstorage содержит in-memory хранилище метрик.
 package memstorage
 
 import (
@@ -16,7 +17,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// Хранилище метрик с репозиторием в памяти сервера.
+// MemStorage - хранилище метрик с репозиторием в памяти сервера.
 // Репозиторий поддерживает функциональность сброса содержимого в файл на сервере.
 type MemStorage struct {
 	storage []metric.Metrics // in-memory хранилище метрик
@@ -29,7 +30,7 @@ type MemStorage struct {
 	l               *log.Logger
 }
 
-// Создаёт новое in-memory хранилище.
+// NewMemStorage создаёт новое in-memory хранилище.
 func NewMemStorage(
 	ctx context.Context, file string, restore bool,
 	storeInterval uint, retries []int, l *log.Logger,
@@ -56,7 +57,7 @@ func NewMemStorage(
 	}
 
 	if file != "" && storeInterval > 0 {
-		saveCtx, cancel := context.WithCancel(context.Background())
+		saveCtx, cancel := context.WithCancel(ctx)
 		s.closeSave = cancel
 		ticker := time.NewTicker(time.Duration(storeInterval) * time.Second)
 
@@ -80,7 +81,7 @@ func NewMemStorage(
 	return s, nil
 }
 
-// Выполняет обновление метрики в репозитории.
+// update выполняет обновление метрики в репозитории.
 func (s *MemStorage) update(mtrc *metric.Metrics) {
 	for i := range s.storage {
 		if mtrc.MType == s.storage[i].MType && mtrc.ID == s.storage[i].ID {
@@ -98,7 +99,7 @@ func (s *MemStorage) update(mtrc *metric.Metrics) {
 	s.storage = append(s.storage, *mtrc)
 }
 
-// Выполняет сохранение метрик из памяти сервера в файл.
+// save выполняет сохранение метрик из памяти сервера в файл.
 func (s *MemStorage) save(ctx context.Context) error {
 	const filePerm fs.FileMode = 0o666
 
@@ -137,7 +138,7 @@ func (s *MemStorage) save(ctx context.Context) error {
 	return nil
 }
 
-// Выполняет загрузку метрик из файла в память сервера.
+// load выполняет загрузку метрик из файла в память сервера.
 func (s *MemStorage) load(ctx context.Context) error {
 	var (
 		data []byte
@@ -176,7 +177,7 @@ func (s *MemStorage) load(ctx context.Context) error {
 	return decoder.Decode(&s.storage)
 }
 
-// Возвращает все метрики, находящиеся в репозитории.
+// GetAll возвращает все метрики, находящиеся в репозитории.
 func (s *MemStorage) GetAll(_ context.Context) ([]metric.Metrics, error) {
 	s.mtx.RLock()
 	defer s.mtx.RUnlock()
@@ -187,7 +188,7 @@ func (s *MemStorage) GetAll(_ context.Context) ([]metric.Metrics, error) {
 	return data, nil
 }
 
-// Возвращает определенную метрику, соответствующую параметрам mType и mName.
+// GetValue возвращает определенную метрику, соответствующую параметрам mType и mName.
 func (s *MemStorage) GetValue(_ context.Context, mType string, mName string) (*metric.Metrics, error) {
 	s.mtx.RLock()
 	defer s.mtx.RUnlock()
@@ -201,7 +202,7 @@ func (s *MemStorage) GetValue(_ context.Context, mType string, mName string) (*m
 	return &metric.Metrics{}, nil
 }
 
-// Выполняет обновление единственной метрики.
+// Update выполняет обновление единственной метрики.
 func (s *MemStorage) Update(ctx context.Context, mtrc *metric.Metrics) error {
 	defer func() {
 		if s.syncSave {
@@ -220,7 +221,7 @@ func (s *MemStorage) Update(ctx context.Context, mtrc *metric.Metrics) error {
 	return nil
 }
 
-// Выполняет обновление метрик из набора.
+// UpdateMany выполняет обновление метрик из набора.
 func (s *MemStorage) UpdateMany(_ context.Context, mtrcs []metric.Metrics) error {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
@@ -232,12 +233,12 @@ func (s *MemStorage) UpdateMany(_ context.Context, mtrcs []metric.Metrics) error
 	return nil
 }
 
-// Выполняет проверку доступности репозитория.
+// Ping выполняет проверку доступности репозитория.
 func (s *MemStorage) Ping(_ context.Context) error {
 	return nil
 }
 
-// Выполняет закрытие репозитория.
+// Close выполняет закрытие репозитория.
 func (s *MemStorage) Close() error {
 	s.closeSave()
 

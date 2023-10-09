@@ -15,7 +15,7 @@ type Context struct {
 	key []byte
 }
 
-// Создает новый контекст.
+// NewContext создает новый контекст.
 func NewContext(ctx echo.Context, key []byte) *Context {
 	return &Context{
 		Context: ctx,

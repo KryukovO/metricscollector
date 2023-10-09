@@ -1,8 +1,12 @@
-.PHONY: build test cover cover-html bench lint
+.PHONY: build test cover cover-html bench lint static
+
+BUILDDATE=$(shell date +'%d-%m-%Y')
+BUILDVERSION=v0.0.20
 
 build:
-	go build -o cmd/agent/agent cmd/agent/main.go
-	go build -o cmd/server/server cmd/server/main.go
+	go build -o cmd/agent/agent -ldflags "-X main.buildVersion=${BUILDVERSION} -X main.buildDate=${BUILDDATE}" cmd/agent/main.go
+	go build -o cmd/server/server -ldflags "-X main.buildVersion=${BUILDVERSION} -X main.buildDate=${BUILDDATE}" cmd/server/main.go
+	go build -o cmd/staticlint/staticlint cmd/staticlint/main.go
 
 test:
 	go test -v -timeout 30s -race ./...
@@ -22,3 +26,6 @@ bench:
 
 lint:
 	golangci-lint run ./...
+
+static:
+	./cmd/staticlint/staticlint ./...

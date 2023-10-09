@@ -1,3 +1,4 @@
+// Package middleware содержит промежуточные обработчки для HTTP-сервера.
 package middleware
 
 import (
@@ -15,13 +16,13 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// Сруктура управления Middleware.
+// Manager предназначен для управления middleware.
 type Manager struct {
 	key []byte
 	l   *log.Logger
 }
 
-// Создаёт новую структуру управления Middleware.
+// NewManager создаёт новый объект Manager.
 func NewManager(key []byte, l *log.Logger) *Manager {
 	lg := log.StandardLogger()
 	if l != nil {
@@ -31,7 +32,7 @@ func NewManager(key []byte, l *log.Logger) *Manager {
 	return &Manager{key: key, l: lg}
 }
 
-// Middleware для логирования входящих запросов и их результатов.
+// LoggingMiddleware - middleware для логирования входящих запросов и их результатов.
 func (mw *Manager) LoggingMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 	return echo.HandlerFunc(func(e echo.Context) error {
 		uuid := uuid.New()
@@ -61,7 +62,7 @@ func (mw *Manager) LoggingMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 	})
 }
 
-// Middleware для распаковки сжатых входящих запрос и сжатия результатов.
+// GZipMiddleware - middleware для распаковки сжатых входящих запрос и сжатия результатов.
 func (mw *Manager) GZipMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 	return echo.HandlerFunc(func(e echo.Context) error {
 		uuid := e.Get("uuid")
@@ -98,7 +99,7 @@ func (mw *Manager) GZipMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 	})
 }
 
-// Middleware для валидации входящего запроса
+// HashMiddleware - middleware для валидации входящего запроса
 // путём сравнения хеша данных и значения в заголовке HashSHA256.
 func (mw *Manager) HashMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 	return echo.HandlerFunc(func(e echo.Context) error {
