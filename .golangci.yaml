@@ -55,3 +55,17 @@ linters-settings:
       - stdlib
       - generic
       - echo.Context
+  
+  testifylint:
+    enable:
+      - bool-compare
+      - compares
+      - empty
+      - error-is-as
+      - error-nil
+      - expected-actual
+      - float-compare
+      - len
+      - suite-dont-use-pkg
+      - suite-extra-assert-call
+      - suite-thelper

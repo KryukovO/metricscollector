@@ -259,7 +259,7 @@ func (c *StorageController) getValueHandler(e echo.Context) error {
 	}
 
 	if v.Delta != nil {
-		return e.String(http.StatusOK, fmt.Sprintf("%d", *v.Delta))
+		return e.String(http.StatusOK, strconv.FormatInt(*v.Delta, 10))
 	}
 
 	return e.String(http.StatusOK, strconv.FormatFloat(*v.Value, 'f', -1, 64))

@@ -265,12 +265,12 @@ func TestUpdate(t *testing.T) {
 				assert.Error(t, err)
 				stor, getErr := repo.GetAll(context.Background())
 				require.NoError(t, getErr)
-				assert.Equal(t, true, len(stor) == 0, "The update returned an error, but the value was saved")
+				assert.Empty(t, stor, "The update returned an error, but the value was saved")
 			} else {
 				assert.NoError(t, err)
 				stor, getErr := repo.GetAll(context.Background())
 				require.NoError(t, getErr)
-				require.Equal(t, true, len(stor) == 1, "The update was successful, but the value was not saved")
+				require.Len(t, stor, 1, "The update was successful, but the value was not saved")
 				v := stor[0]
 				if test.arg.Delta != nil {
 					assert.EqualValues(
@@ -396,12 +396,12 @@ func TestUpdateMany(t *testing.T) {
 				assert.Error(t, err)
 				stor, getErr := repo.GetAll(context.Background())
 				require.NoError(t, getErr)
-				assert.Equal(t, true, len(stor) == 0, "The update returned an error, but the value was saved")
+				assert.Empty(t, stor, "The update returned an error, but the value was saved")
 			} else {
 				assert.NoError(t, err)
 				stor, getErr := repo.GetAll(context.Background())
 				require.NoError(t, getErr)
-				require.Equal(t, true, len(stor) == len(test.arg), "The update was successful, but the value was not saved")
+				require.Len(t, stor, len(test.arg), "The update was successful, but the value was not saved")
 				assert.EqualValues(t, test.arg, stor, "Saved value '%+v' is not equal to expected '%+v'", stor, test.arg)
 			}
 		})
