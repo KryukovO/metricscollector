@@ -3,6 +3,8 @@ package handlers
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
 	"errors"
 	"fmt"
 	"io"
@@ -879,7 +881,12 @@ func Example() {
 	}()
 
 	// Маппинг обработчиков в инстанс echo.
-	if err := SetHandlers(e, stor, []byte("key"), lg); err != nil {
+	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		panic(err)
+	}
+
+	if err := SetHandlers(e, stor, []byte("key"), *privateKey, lg); err != nil {
 		panic(err)
 	}
 

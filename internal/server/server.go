@@ -92,7 +92,7 @@ func (s *Server) Run(ctx context.Context) error {
 	e.HideBanner = true
 	e.HidePort = true
 
-	if err := handlers.SetHandlers(e, stor, []byte(s.cfg.Key), s.l); err != nil {
+	if err := handlers.SetHandlers(e, stor, []byte(s.cfg.Key), s.cfg.PrivateKey, s.l); err != nil {
 		return err
 	}
 
