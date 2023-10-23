@@ -41,6 +41,9 @@ linters-settings:
   errcheck:
     ignore: Write
 
+  gocognit:
+    min-complexity: 35
+
   gosec:
     excludes:
       - G108 # отключаем правило для работы с pprof 

@@ -2,6 +2,8 @@ package agent
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
 	"testing"
 	"time"
 
@@ -31,6 +33,9 @@ func TestSend(t *testing.T) {
 		}
 	)
 
+	privateKey, err := rsa.GenerateKey(rand.Reader, 1024)
+	require.NoError(t, err)
+
 	server := mocks.NewMockServer()
 	defer server.Close()
 
@@ -42,6 +47,7 @@ func TestSend(t *testing.T) {
 			RateLimit:     2,
 			HTTPTimeout:   utils.Duration{Duration: 10 * time.Second},
 			BatchSize:     1,
+			PublicKey:     privateKey.PublicKey,
 		},
 		nil,
 	)

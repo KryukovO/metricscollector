@@ -113,8 +113,16 @@ func (a *Agent) Run(ctx context.Context) error {
 				return nil
 
 			case <-sigCtx.Done():
-				err = a.send(gCtx, storage, &scanCount, &mtx)
+				mtx.Lock()
+
+				sndStorage, err := metricsPreparation(storage, scanCount)
 				if err != nil {
+					return err
+				}
+
+				mtx.Unlock()
+
+				if err = a.sender.Send(ctx, sndStorage); err != nil {
 					return err
 				}
 
@@ -123,8 +131,18 @@ func (a *Agent) Run(ctx context.Context) error {
 				return nil
 
 			case <-sendTicker.C:
-				err = a.send(gCtx, storage, &scanCount, &mtx)
+				mtx.Lock()
+
+				sndStorage, err := metricsPreparation(storage, scanCount)
 				if err != nil {
+					return err
+				}
+
+				scanCount = 0
+
+				mtx.Unlock()
+
+				if err = a.sender.Send(ctx, sndStorage); err != nil {
 					return err
 				}
 			}
@@ -134,25 +152,17 @@ func (a *Agent) Run(ctx context.Context) error {
 	return g.Wait()
 }
 
-func (a *Agent) send(ctx context.Context, storage []metric.Metrics, scanCount *int64, mtx *sync.Mutex) error {
-	mtx.Lock()
-
+// metricsPreparation выполняет подготовку метрик к отправке на сервер.
+func metricsPreparation(storage []metric.Metrics, scanCount int64) ([]metric.Metrics, error) {
 	pollCount, err := metric.NewMetrics("PollCount", "", scanCount)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	storage = append(storage, pollCount)
-	*scanCount = 0
 	sndStorage := make([]metric.Metrics, len(storage))
 
 	copy(sndStorage, storage)
 
-	mtx.Unlock()
-
-	if err = a.sender.Send(ctx, sndStorage); err != nil {
-		return err
-	}
-
-	return nil
+	return sndStorage, nil
 }
