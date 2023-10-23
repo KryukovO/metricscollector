@@ -33,7 +33,7 @@ func TestSend(t *testing.T) {
 		}
 	)
 
-	privateKey, err := rsa.GenerateKey(rand.Reader, 1024)
+	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
 	require.NoError(t, err)
 
 	server := mocks.NewMockServer()

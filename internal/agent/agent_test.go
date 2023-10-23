@@ -15,11 +15,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestXxx(t *testing.T) {
+func TestRun(t *testing.T) {
 	server := mocks.NewMockServer()
 	defer server.Close()
 
-	privateKey, err := rsa.GenerateKey(rand.Reader, 1024)
+	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
 	require.NoError(t, err)
 
 	agent, err := NewAgent(
