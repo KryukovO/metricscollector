@@ -100,7 +100,7 @@ func TestScanPSUtilMetrics(t *testing.T) {
 
 			assert.Subset(t, keys, test.keys)
 			// NumCPU используется для проверки того, что в результате находится N метрик CPUutilization
-			assert.Equal(t, keys, len(test.keys)+runtime.NumCPU())
+			assert.Len(t, keys, len(test.keys)+runtime.NumCPU())
 		})
 	}
 }

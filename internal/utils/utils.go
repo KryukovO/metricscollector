@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/hmac"
 	"crypto/sha256"
+	"flag"
 	"time"
 )
 
@@ -37,4 +38,17 @@ func HashSHA256(src, key []byte) ([]byte, error) {
 	}
 
 	return h.Sum(nil), nil
+}
+
+// IsFlagPassed проверяет, был ли указан флаг запуска.
+func IsFlagPassed(name string) bool {
+	found := false
+
+	flag.Visit(func(f *flag.Flag) {
+		if f.Name == name {
+			found = true
+		}
+	})
+
+	return found
 }

@@ -29,3 +29,5 @@ vendor/
 # Other files
 public.key
 private.key
+agent.cfg
+server.cfg

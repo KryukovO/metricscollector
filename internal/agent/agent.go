@@ -26,8 +26,8 @@ var (
 
 // Agent содержит основные параметры агента.
 type Agent struct {
-	pollInterval   uint
-	reportInterval uint
+	pollInterval   time.Duration
+	reportInterval time.Duration
 	sender         *Sender
 	l              *log.Logger
 }
@@ -63,8 +63,8 @@ func (a *Agent) Run() error {
 		err       error
 	)
 
-	scanTicker := time.NewTicker(time.Duration(a.pollInterval) * time.Second)
-	sendTicker := time.NewTicker(time.Duration(a.reportInterval) * time.Second)
+	scanTicker := time.NewTicker(a.pollInterval)
+	sendTicker := time.NewTicker(a.reportInterval)
 
 	g, ctx := errgroup.WithContext(context.Background())
 

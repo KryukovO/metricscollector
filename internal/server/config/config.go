@@ -4,26 +4,29 @@ package config
 import (
 	"crypto/rsa"
 	"crypto/x509"
+	"encoding/json"
 	"encoding/pem"
 	"errors"
 	"flag"
 	"fmt"
 	"os"
+	"time"
 
+	"github.com/KryukovO/metricscollector/internal/utils"
 	"github.com/caarlos0/env"
 )
 
 const (
 	httpAddress     = "localhost:8080"       // Адрес эндпоинта сервера (host:port) по умолчанию
-	storeInterval   = 300                    // Интервал сохранения значения метрик в файл в секундах по умолчанию
+	storeInterval   = 300 * time.Second      // Интервал сохранения значения метрик в файл в секундах по умолчанию
 	fileStoragePath = "/tmp/metrics-db.json" // Полное имя файла, куда сохраняются текущие значения метрик по умолчанию
 	restore         = true                   // Признак загрузки значений метрик из файла при запуске сервера по умолчанию
 	dsn             = ""                     // Адрес подключения к БД по умолчанию
 	key             = ""                     // Ключ аутентификации по умолчанию
 	cryptoKey       = "private.key"          // Путь до файла с приватным ключом
 
-	storeTimeout    = 5                // Таймаут выполнения операций с хранилищем по умолчанию
-	shutdownTimeout = 10               // Таймаут для graceful shutdown сервера по умолчанию
+	storeTimeout    = 5 * time.Second  // Таймаут выполнения операций с хранилищем по умолчанию
+	shutdownTimeout = 10 * time.Second // Таймаут для graceful shutdown сервера по умолчанию
 	retries         = "1,3,5"          // Интервалы попыток соединения с хранилищем через запятую по умолчанию
 	migrations      = "sql/migrations" // Путь до директории с файлами миграции по умолчанию
 )
@@ -33,39 +36,63 @@ var ErrPrivateKeyNotFound = errors.New("private RSA key data not found")
 
 // Config содержит параметры конфигурации модуля-сервера.
 type Config struct {
-	HTTPAddress     string `env:"ADDRESS"`           // Адрес эндпоинта сервера (host:port)
-	StoreInterval   uint   `env:"STORE_INTERVAL"`    // Интервал сохранения значения метрик в файл в секундах
-	FileStoragePath string `env:"FILE_STORAGE_PATH"` // Полное имя файла, куда сохраняются текущие значения метрик
-	Restore         bool   `env:"RESTORE"`           // Признак загрузки значений метрик из файла при запуске сервера
-	DSN             string `env:"DATABASE_DSN"`      // Адрес подключения к БД
-	Key             string `env:"KEY"`               // Ключ аутентификации
-	CryptoKey       string `env:"CRYPTO_KEY"`        // Путь до файла с приватным ключом
+	// HTTPAddress - Адрес эндпоинта сервера (host:port)
+	HTTPAddress string `env:"ADDRESS" json:"address"`
+	// StoreInterval - Интервал сохранения значения метрик в файл в секундах
+	StoreInterval time.Duration `env:"STORE_INTERVAL" json:"store_interval"`
+	// FileStoragePath - Полное имя файла, куда сохраняются текущие значения метрик
+	FileStoragePath string `env:"FILE_STORAGE_PATH" json:"store_file"`
+	// Restore - Признак загрузки значений метрик из файла при запуске сервера
+	Restore bool `env:"RESTORE" json:"restore"`
+	// DSN - Адрес подключения к БД
+	DSN string `env:"DATABASE_DSN" json:"database_dsn"`
+	// Key - Ключ аутентификации
+	Key string `env:"KEY" json:"-"`
+	// CryptoKey - Путь до файла с приватным ключом
+	CryptoKey string `env:"CRYPTO_KEY" json:"crypto_key"`
 
-	StoreTimeout    uint           // Таймаут выполнения операций с хранилищем
-	ShutdownTimeout uint           // Таймаут для graceful shutdown сервера
-	Retries         string         // Интервалы попыток соединения с хранилищем через запятую
-	Migrations      string         // Путь до директории с файлами миграции
-	PrivateKey      rsa.PrivateKey // Значение приватного ключа
+	// StoreTimeout -Таймаут выполнения операций с хранилищем
+	StoreTimeout time.Duration `json:"-"`
+	// ShutdownTimeout - Таймаут для graceful shutdown сервера
+	ShutdownTimeout time.Duration `json:"-"`
+	// Retries - Интервалы попыток соединения с хранилищем через запятую
+	Retries string `json:"-"`
+	// Migrations - Путь до директории с файлами миграции
+	Migrations string `json:"-"`
+	// PrivateKey - Значение приватного ключа
+	PrivateKey rsa.PrivateKey `json:"-"`
 }
 
 // NewConfig создаёт новый конфиг сервера.
 func NewConfig() (*Config, error) {
 	cfg := &Config{}
 
+	var configPath string
+
+	flag.StringVar(&configPath, "c", "", "Configuration file path")
+	flag.StringVar(&configPath, "config", "", "Configuration file path")
+
 	flag.StringVar(&cfg.HTTPAddress, "a", httpAddress, "Server endpoint address")
-	flag.UintVar(&cfg.StoreInterval, "i", storeInterval, "Store interval")
+	flag.DurationVar(&cfg.StoreInterval, "i", storeInterval, "Store interval")
 	flag.StringVar(&cfg.FileStoragePath, "f", fileStoragePath, "File storage path")
 	flag.BoolVar(&cfg.Restore, "r", restore, "Restore")
 	flag.StringVar(&cfg.DSN, "d", dsn, "Data source name")
 	flag.StringVar(&cfg.Key, "k", key, "Server key")
-
-	flag.UintVar(&cfg.StoreTimeout, "timeout", storeTimeout, "Storage connection timeout")
-	flag.UintVar(&cfg.ShutdownTimeout, "shutdown", shutdownTimeout, "Graceful shutdown timeout")
-	flag.StringVar(&cfg.Retries, "retries", retries, "Server connect retry intervals")
-	flag.StringVar(&cfg.Migrations, "migrations", migrations, "Directory of database migration files")
 	flag.StringVar(&cfg.CryptoKey, "crypto-key", cryptoKey, "Path to file with private cryptographic key")
 
+	flag.DurationVar(&cfg.StoreTimeout, "timeout", storeTimeout, "Storage connection timeout")
+	flag.DurationVar(&cfg.ShutdownTimeout, "shutdown", shutdownTimeout, "Graceful shutdown timeout")
+	flag.StringVar(&cfg.Retries, "retries", retries, "Server connect retry intervals")
+	flag.StringVar(&cfg.Migrations, "migrations", migrations, "Directory of database migration files")
+
 	flag.Parse()
+
+	if configPath != "" {
+		err := cfg.parseFile(configPath)
+		if err != nil {
+			return nil, fmt.Errorf("config file parse error: %w", err)
+		}
+	}
 
 	err := env.Parse(cfg)
 	if err != nil {
@@ -90,4 +117,44 @@ func NewConfig() (*Config, error) {
 	cfg.PrivateKey = *privateKey
 
 	return cfg, nil
+}
+
+func (cfg *Config) parseFile(path string) error {
+	fileConf := &Config{}
+
+	cfgContent, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(cfgContent, fileConf)
+	if err != nil {
+		return err
+	}
+
+	if !utils.IsFlagPassed("a") {
+		cfg.HTTPAddress = fileConf.HTTPAddress
+	}
+
+	if !utils.IsFlagPassed("r") {
+		cfg.Restore = fileConf.Restore
+	}
+
+	if !utils.IsFlagPassed("i") {
+		cfg.StoreInterval = fileConf.StoreInterval
+	}
+
+	if !utils.IsFlagPassed("f") {
+		cfg.FileStoragePath = fileConf.FileStoragePath
+	}
+
+	if !utils.IsFlagPassed("d") {
+		cfg.DSN = fileConf.DSN
+	}
+
+	if !utils.IsFlagPassed("crypto-key") {
+		cfg.CryptoKey = fileConf.CryptoKey
+	}
+
+	return nil
 }

@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/KryukovO/metricscollector/internal/metric"
 	"github.com/KryukovO/metricscollector/internal/storage/repository/memstorage"
@@ -64,7 +65,7 @@ func TestGetAll(t *testing.T) {
 
 func TestGetValue(t *testing.T) {
 	var (
-		timeout          = 10
+		timeout          = 10 * time.Second
 		counterVal int64 = 100
 		gaugeVal         = 12345.67
 	)
@@ -152,7 +153,7 @@ func TestGetValue(t *testing.T) {
 	repo, _, err := newTestRepo(context.Background(), false)
 	require.NoError(t, err)
 
-	s := NewMetricsStorage(repo, uint(timeout))
+	s := NewMetricsStorage(repo, timeout)
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -169,7 +170,7 @@ func TestGetValue(t *testing.T) {
 
 func TestUpdate(t *testing.T) {
 	var (
-		timeout          = 10
+		timeout          = 10 * time.Second
 		counterVal int64 = 100
 		gaugeVal         = 12345.67
 	)
@@ -256,7 +257,7 @@ func TestUpdate(t *testing.T) {
 		repo, _, err := newTestRepo(context.Background(), true)
 		require.NoError(t, err)
 
-		s := NewMetricsStorage(repo, uint(timeout))
+		s := NewMetricsStorage(repo, timeout)
 
 		t.Run(test.name, func(t *testing.T) {
 			err := s.Update(context.Background(), &test.arg)
@@ -291,7 +292,7 @@ func TestUpdate(t *testing.T) {
 
 func TestUpdateMany(t *testing.T) {
 	var (
-		timeout          = 10
+		timeout          = 10 * time.Second
 		counterVal int64 = 100
 		gaugeVal         = 12345.67
 	)
@@ -387,7 +388,7 @@ func TestUpdateMany(t *testing.T) {
 		repo, _, err := newTestRepo(context.Background(), true)
 		require.NoError(t, err)
 
-		s := NewMetricsStorage(repo, uint(timeout))
+		s := NewMetricsStorage(repo, timeout)
 
 		t.Run(test.name, func(t *testing.T) {
 			err := s.UpdateMany(context.Background(), test.arg)
@@ -431,7 +432,7 @@ func BenchmarkGet(b *testing.B) {
 
 func BenchmarkUpdate(b *testing.B) {
 	ctx := context.Background()
-	timeout := 10
+	timeout := 10 * time.Second
 	counterVal := int64(100)
 	gaugeVal := 12345.67
 	mtrc := []metric.Metrics{
@@ -449,7 +450,7 @@ func BenchmarkUpdate(b *testing.B) {
 
 	b.Run("update", func(b *testing.B) {
 		repo, _, _ := newTestRepo(ctx, true)
-		s := NewMetricsStorage(repo, uint(timeout))
+		s := NewMetricsStorage(repo, timeout)
 
 		b.ResetTimer()
 
@@ -463,7 +464,7 @@ func BenchmarkUpdate(b *testing.B) {
 
 	b.Run("updateMany", func(b *testing.B) {
 		repo, _, _ := newTestRepo(ctx, true)
-		s := NewMetricsStorage(repo, uint(timeout))
+		s := NewMetricsStorage(repo, timeout)
 
 		b.ResetTimer()
 

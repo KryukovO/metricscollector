@@ -10,7 +10,6 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
-	"time"
 
 	"github.com/KryukovO/metricscollector/internal/server/config"
 	"github.com/KryukovO/metricscollector/internal/server/handlers"
@@ -64,7 +63,7 @@ func (s *Server) Run(ctx context.Context) error {
 	sigCtx, sigCancel := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
 	defer sigCancel()
 
-	repoCtx, cancel := context.WithTimeout(sigCtx, time.Duration(s.cfg.StoreTimeout)*time.Second)
+	repoCtx, cancel := context.WithTimeout(sigCtx, s.cfg.StoreTimeout)
 	defer cancel()
 
 	s.l.Info("Connecting to the repository...")
@@ -119,7 +118,7 @@ func (s *Server) Run(ctx context.Context) error {
 
 		s.l.Info("Stopping server...")
 
-		shutdownCtx, cancel := context.WithTimeout(ctx, time.Duration(s.cfg.ShutdownTimeout)*time.Second)
+		shutdownCtx, cancel := context.WithTimeout(ctx, s.cfg.ShutdownTimeout)
 		defer cancel()
 
 		if err := e.Shutdown(shutdownCtx); err != nil {

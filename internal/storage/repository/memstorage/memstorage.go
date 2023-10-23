@@ -33,7 +33,7 @@ type MemStorage struct {
 // NewMemStorage создаёт новое in-memory хранилище.
 func NewMemStorage(
 	ctx context.Context, file string, restore bool,
-	storeInterval uint, retries []int, l *log.Logger,
+	storeInterval time.Duration, retries []int, l *log.Logger,
 ) (*MemStorage, error) {
 	lg := log.StandardLogger()
 	if l != nil {
@@ -59,7 +59,7 @@ func NewMemStorage(
 	if file != "" && storeInterval > 0 {
 		saveCtx, cancel := context.WithCancel(ctx)
 		s.closeSave = cancel
-		ticker := time.NewTicker(time.Duration(storeInterval) * time.Second)
+		ticker := time.NewTicker(storeInterval)
 
 		go func() {
 			for {

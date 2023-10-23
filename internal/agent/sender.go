@@ -58,7 +58,7 @@ func NewSender(cfg *config.Config, l *log.Logger) (*Sender, error) {
 	return &Sender{
 		serverAddress: cfg.ServerAddress,
 		rateLimit:     cfg.RateLimit,
-		httpTimeout:   time.Duration(cfg.HTTPTimeout) * time.Second,
+		httpTimeout:   cfg.HTTPTimeout,
 		batchSize:     cfg.BatchSize,
 		retries:       retries,
 		key:           cfg.Key,
