@@ -57,7 +57,7 @@ func NewMemStorage(
 	}
 
 	if file != "" && storeInterval > 0 {
-		saveCtx, cancel := context.WithCancel(ctx)
+		saveCtx, cancel := context.WithCancel(context.Background())
 		s.closeSave = cancel
 		ticker := time.NewTicker(storeInterval)
 
@@ -241,6 +241,11 @@ func (s *MemStorage) Ping(_ context.Context) error {
 // Close выполняет закрытие репозитория.
 func (s *MemStorage) Close() error {
 	s.closeSave()
+
+	// Сохранение метрик при закрытии хранилища
+	if err := s.save(context.Background()); err != nil {
+		s.l.Errorf("error when saving metrics to the file: %s", err)
+	}
 
 	return nil
 }

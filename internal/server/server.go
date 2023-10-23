@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"net/http"
-	"os"
 	"os/signal"
 	"strconv"
 	"strings"
@@ -60,7 +59,7 @@ func (s *Server) Run(ctx context.Context) error {
 		retries = append(retries, interval)
 	}
 
-	sigCtx, sigCancel := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
+	sigCtx, sigCancel := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 	defer sigCancel()
 
 	repoCtx, cancel := context.WithTimeout(sigCtx, s.cfg.StoreTimeout.Duration)

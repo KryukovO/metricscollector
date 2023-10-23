@@ -5,7 +5,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os/signal"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/KryukovO/metricscollector/internal/agent/config"
@@ -53,7 +55,7 @@ func NewAgent(cfg *config.Config, l *log.Logger) (*Agent, error) {
 }
 
 // Run выполняет запуск процессов сканирования и отправки метрик в хранилище.
-func (a *Agent) Run() error {
+func (a *Agent) Run(ctx context.Context) error {
 	a.l.Info("Agent is running...")
 
 	var (
@@ -66,16 +68,24 @@ func (a *Agent) Run() error {
 	scanTicker := time.NewTicker(a.pollInterval)
 	sendTicker := time.NewTicker(a.reportInterval)
 
-	g, ctx := errgroup.WithContext(context.Background())
+	sigCtx, sigCancel := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
+	defer sigCancel()
+
+	g, gCtx := errgroup.WithContext(ctx)
 
 	g.Go(func() error {
 		for {
 			select {
-			case <-ctx.Done():
+			case <-gCtx.Done():
+				return nil
+
+			case <-sigCtx.Done():
+				a.l.Info("Metrics scanner stopped gracefully")
+
 				return nil
 
 			case <-scanTicker.C:
-				metricCh := ScanMetrics(ctx)
+				metricCh := ScanMetrics(gCtx)
 
 				mtx.Lock()
 
@@ -99,26 +109,22 @@ func (a *Agent) Run() error {
 	g.Go(func() error {
 		for {
 			select {
-			case <-ctx.Done():
+			case <-gCtx.Done():
 				return nil
 
-			case <-sendTicker.C:
-				mtx.Lock()
-
-				pollCount, err := metric.NewMetrics("PollCount", "", scanCount)
+			case <-sigCtx.Done():
+				err = a.send(gCtx, storage, &scanCount, &mtx)
 				if err != nil {
 					return err
 				}
 
-				storage = append(storage, pollCount)
-				scanCount = 0
-				sndStorage := make([]metric.Metrics, len(storage))
+				a.l.Info("Metrics sender stopped gracefully")
 
-				copy(sndStorage, storage)
+				return nil
 
-				mtx.Unlock()
-
-				if err = a.sender.Send(ctx, sndStorage); err != nil {
+			case <-sendTicker.C:
+				err = a.send(gCtx, storage, &scanCount, &mtx)
+				if err != nil {
 					return err
 				}
 			}
@@ -126,4 +132,27 @@ func (a *Agent) Run() error {
 	})
 
 	return g.Wait()
+}
+
+func (a *Agent) send(ctx context.Context, storage []metric.Metrics, scanCount *int64, mtx *sync.Mutex) error {
+	mtx.Lock()
+
+	pollCount, err := metric.NewMetrics("PollCount", "", scanCount)
+	if err != nil {
+		return err
+	}
+
+	storage = append(storage, pollCount)
+	*scanCount = 0
+	sndStorage := make([]metric.Metrics, len(storage))
+
+	copy(sndStorage, storage)
+
+	mtx.Unlock()
+
+	if err = a.sender.Send(ctx, sndStorage); err != nil {
+		return err
+	}
+
+	return nil
 }

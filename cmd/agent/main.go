@@ -3,6 +3,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -53,7 +54,7 @@ func main() {
 		l.Fatalf("agent initialization error: %v. Exit(1)", err)
 	}
 
-	if err := agnt.Run(); err != nil {
+	if err := agnt.Run(context.Background()); err != nil {
 		l.Fatalf("agent running error: %v. Exit(1)", err)
 	}
 }
