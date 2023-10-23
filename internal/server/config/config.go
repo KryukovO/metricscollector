@@ -39,7 +39,7 @@ type Config struct {
 	// HTTPAddress - Адрес эндпоинта сервера (host:port)
 	HTTPAddress string `env:"ADDRESS" json:"address"`
 	// StoreInterval - Интервал сохранения значения метрик в файл в секундах
-	StoreInterval time.Duration `env:"STORE_INTERVAL" json:"store_interval"`
+	StoreInterval utils.Duration `env:"STORE_INTERVAL" json:"store_interval"`
 	// FileStoragePath - Полное имя файла, куда сохраняются текущие значения метрик
 	FileStoragePath string `env:"FILE_STORAGE_PATH" json:"store_file"`
 	// Restore - Признак загрузки значений метрик из файла при запуске сервера
@@ -52,9 +52,9 @@ type Config struct {
 	CryptoKey string `env:"CRYPTO_KEY" json:"crypto_key"`
 
 	// StoreTimeout -Таймаут выполнения операций с хранилищем
-	StoreTimeout time.Duration `json:"-"`
+	StoreTimeout utils.Duration `json:"-"`
 	// ShutdownTimeout - Таймаут для graceful shutdown сервера
-	ShutdownTimeout time.Duration `json:"-"`
+	ShutdownTimeout utils.Duration `json:"-"`
 	// Retries - Интервалы попыток соединения с хранилищем через запятую
 	Retries string `json:"-"`
 	// Migrations - Путь до директории с файлами миграции
@@ -73,15 +73,15 @@ func NewConfig() (*Config, error) {
 	flag.StringVar(&configPath, "config", "", "Configuration file path")
 
 	flag.StringVar(&cfg.HTTPAddress, "a", httpAddress, "Server endpoint address")
-	flag.DurationVar(&cfg.StoreInterval, "i", storeInterval, "Store interval")
+	flag.DurationVar(&cfg.StoreInterval.Duration, "i", storeInterval, "Store interval")
 	flag.StringVar(&cfg.FileStoragePath, "f", fileStoragePath, "File storage path")
 	flag.BoolVar(&cfg.Restore, "r", restore, "Restore")
 	flag.StringVar(&cfg.DSN, "d", dsn, "Data source name")
 	flag.StringVar(&cfg.Key, "k", key, "Server key")
 	flag.StringVar(&cfg.CryptoKey, "crypto-key", cryptoKey, "Path to file with private cryptographic key")
 
-	flag.DurationVar(&cfg.StoreTimeout, "timeout", storeTimeout, "Storage connection timeout")
-	flag.DurationVar(&cfg.ShutdownTimeout, "shutdown", shutdownTimeout, "Graceful shutdown timeout")
+	flag.DurationVar(&cfg.StoreTimeout.Duration, "timeout", storeTimeout, "Storage connection timeout")
+	flag.DurationVar(&cfg.ShutdownTimeout.Duration, "shutdown", shutdownTimeout, "Graceful shutdown timeout")
 	flag.StringVar(&cfg.Retries, "retries", retries, "Server connect retry intervals")
 	flag.StringVar(&cfg.Migrations, "migrations", migrations, "Directory of database migration files")
 

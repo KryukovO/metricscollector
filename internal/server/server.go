@@ -63,7 +63,7 @@ func (s *Server) Run(ctx context.Context) error {
 	sigCtx, sigCancel := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
 	defer sigCancel()
 
-	repoCtx, cancel := context.WithTimeout(sigCtx, s.cfg.StoreTimeout)
+	repoCtx, cancel := context.WithTimeout(sigCtx, s.cfg.StoreTimeout.Duration)
 	defer cancel()
 
 	s.l.Info("Connecting to the repository...")
@@ -71,14 +71,17 @@ func (s *Server) Run(ctx context.Context) error {
 	if s.cfg.DSN != "" {
 		repo, err = pgstorage.NewPgStorage(repoCtx, s.cfg.DSN, s.cfg.Migrations, retries)
 	} else {
-		repo, err = memstorage.NewMemStorage(repoCtx, s.cfg.FileStoragePath, s.cfg.Restore, s.cfg.StoreInterval, retries, s.l)
+		repo, err = memstorage.NewMemStorage(
+			repoCtx, s.cfg.FileStoragePath, s.cfg.Restore,
+			s.cfg.StoreInterval.Duration, retries, s.l,
+		)
 	}
 
 	if err != nil {
 		return err
 	}
 
-	stor := storage.NewMetricsStorage(repo, s.cfg.StoreTimeout)
+	stor := storage.NewMetricsStorage(repo, s.cfg.StoreTimeout.Duration)
 	defer func() {
 		stor.Close()
 
@@ -118,7 +121,7 @@ func (s *Server) Run(ctx context.Context) error {
 
 		s.l.Info("Stopping server...")
 
-		shutdownCtx, cancel := context.WithTimeout(ctx, s.cfg.ShutdownTimeout)
+		shutdownCtx, cancel := context.WithTimeout(ctx, s.cfg.ShutdownTimeout.Duration)
 		defer cancel()
 
 		if err := e.Shutdown(shutdownCtx); err != nil {

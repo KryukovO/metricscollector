@@ -45,8 +45,8 @@ func NewAgent(cfg *config.Config, l *log.Logger) (*Agent, error) {
 	}
 
 	return &Agent{
-		pollInterval:   cfg.PollInterval,
-		reportInterval: cfg.ReportInterval,
+		pollInterval:   cfg.PollInterval.Duration,
+		reportInterval: cfg.ReportInterval.Duration,
 		sender:         sender,
 		l:              lg,
 	}, nil

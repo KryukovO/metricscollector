@@ -35,9 +35,9 @@ var ErrPublicKeyNotFound = errors.New("public RSA key data not found")
 // Config содержит параметры конфигурации модуля-агента.
 type Config struct {
 	// PollInterval - Интервал обновления метрик в секундах
-	PollInterval time.Duration `env:"POLL_INTERVAL" json:"poll_interval"`
+	PollInterval utils.Duration `env:"POLL_INTERVAL" json:"poll_interval"`
 	// ReportInterval - Интервал отправки метрик в секундах
-	ReportInterval time.Duration `env:"REPORT_INTERVAL" json:"report_interval"`
+	ReportInterval utils.Duration `env:"REPORT_INTERVAL" json:"report_interval"`
 	// ServerAddress - Адрес эндпоинта сервера (host:port)
 	ServerAddress string `env:"ADDRESS" json:"address"`
 	// Key - Ключ аутентификации
@@ -48,7 +48,7 @@ type Config struct {
 	CryptoKey string `env:"CRYPTO_KEY" json:"crypto_key"`
 
 	// HTTPTimeout - Таймаут соединения с сервером
-	HTTPTimeout time.Duration `json:"-"`
+	HTTPTimeout utils.Duration `json:"-"`
 	// BatchSize - Количество посылаемых за раз метрик
 	BatchSize uint `json:"-"`
 	// Retries - Интервалы попыток соединения с сервером через запятую
@@ -67,13 +67,13 @@ func NewConfig() (*Config, error) {
 	flag.StringVar(&configPath, "config", "", "Configuration file path")
 
 	flag.StringVar(&cfg.ServerAddress, "a", serverAddress, "Server endpoint address")
-	flag.DurationVar(&cfg.ReportInterval, "r", reportInterval, "Metric reporting frequency in second")
-	flag.DurationVar(&cfg.PollInterval, "p", pollInterval, "Metric polling frequency in seconds")
+	flag.DurationVar(&cfg.ReportInterval.Duration, "r", reportInterval, "Metric reporting frequency in second")
+	flag.DurationVar(&cfg.PollInterval.Duration, "p", pollInterval, "Metric polling frequency in seconds")
 	flag.StringVar(&cfg.Key, "k", key, "Server key")
 	flag.UintVar(&cfg.RateLimit, "l", rateLimit, "Number of concurrent requests")
 	flag.StringVar(&cfg.CryptoKey, "crypto-key", cryptoKey, "Path to file with public cryptographic key")
 
-	flag.DurationVar(&cfg.HTTPTimeout, "timeout", httpTimeout, "Server connection timeout")
+	flag.DurationVar(&cfg.HTTPTimeout.Duration, "timeout", httpTimeout, "Server connection timeout")
 	flag.UintVar(&cfg.BatchSize, "batch", batchSize, "Metrics batch size")
 	flag.StringVar(&cfg.Retries, "retries", retries, "Server connection retry intervals")
 
