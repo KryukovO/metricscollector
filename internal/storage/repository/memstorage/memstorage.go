@@ -33,7 +33,7 @@ type MemStorage struct {
 // NewMemStorage создаёт новое in-memory хранилище.
 func NewMemStorage(
 	ctx context.Context, file string, restore bool,
-	storeInterval uint, retries []int, l *log.Logger,
+	storeInterval time.Duration, retries []int, l *log.Logger,
 ) (*MemStorage, error) {
 	lg := log.StandardLogger()
 	if l != nil {
@@ -57,9 +57,9 @@ func NewMemStorage(
 	}
 
 	if file != "" && storeInterval > 0 {
-		saveCtx, cancel := context.WithCancel(ctx)
+		saveCtx, cancel := context.WithCancel(context.Background())
 		s.closeSave = cancel
-		ticker := time.NewTicker(time.Duration(storeInterval) * time.Second)
+		ticker := time.NewTicker(storeInterval)
 
 		go func() {
 			for {
@@ -241,6 +241,11 @@ func (s *MemStorage) Ping(_ context.Context) error {
 // Close выполняет закрытие репозитория.
 func (s *MemStorage) Close() error {
 	s.closeSave()
+
+	// Сохранение метрик при закрытии хранилища
+	if err := s.save(context.Background()); err != nil {
+		s.l.Errorf("error when saving metrics to the file: %s", err)
+	}
 
 	return nil
 }

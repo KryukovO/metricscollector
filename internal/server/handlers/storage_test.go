@@ -3,6 +3,8 @@ package handlers
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
 	"errors"
 	"fmt"
 	"io"
@@ -11,6 +13,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/KryukovO/metricscollector/internal/metric"
 	"github.com/KryukovO/metricscollector/internal/storage"
@@ -98,7 +101,7 @@ func newEchoContext(
 
 func TestUpdateHandler(t *testing.T) {
 	params := []string{"mtype", "mname", "value"}
-	timeout := 10
+	timeout := 10 * time.Second
 
 	type args struct {
 		url    string
@@ -200,7 +203,7 @@ func TestUpdateHandler(t *testing.T) {
 			repo, err := newTestRepo(true)
 			require.NoError(t, err)
 			s := StorageController{
-				storage: storage.NewMetricsStorage(repo, uint(timeout)),
+				storage: storage.NewMetricsStorage(repo, timeout),
 				l:       logrus.StandardLogger(),
 			}
 			err = s.updateHandler(ctx)
@@ -216,7 +219,7 @@ func TestUpdateHandler(t *testing.T) {
 
 func TestUpdateJSONHandler(t *testing.T) {
 	url := "/update/"
-	timeout := 10
+	timeout := 10 * time.Second
 
 	type want struct {
 		status      int
@@ -319,7 +322,7 @@ func TestUpdateJSONHandler(t *testing.T) {
 			repo, err := newTestRepo(true)
 			require.NoError(t, err)
 			s := StorageController{
-				storage: storage.NewMetricsStorage(repo, uint(timeout)),
+				storage: storage.NewMetricsStorage(repo, timeout),
 				l:       logrus.StandardLogger(),
 			}
 			err = s.updateJSONHandler(ctx)
@@ -336,7 +339,7 @@ func TestUpdateJSONHandler(t *testing.T) {
 
 func TestUpdatesHandler(t *testing.T) {
 	url := "/updates/"
-	timeout := 10
+	timeout := 10 * time.Second
 
 	tests := []struct {
 		name   string
@@ -397,7 +400,7 @@ func TestUpdatesHandler(t *testing.T) {
 			repo, err := newTestRepo(true)
 			require.NoError(t, err)
 			s := StorageController{
-				storage: storage.NewMetricsStorage(repo, uint(timeout)),
+				storage: storage.NewMetricsStorage(repo, timeout),
 				l:       logrus.StandardLogger(),
 			}
 			err = s.updatesHandler(ctx)
@@ -413,7 +416,7 @@ func TestUpdatesHandler(t *testing.T) {
 
 func TestGetValueHandler(t *testing.T) {
 	params := []string{"mtype", "mname"}
-	timeout := 10
+	timeout := 10 * time.Second
 
 	type args struct {
 		url    string
@@ -485,7 +488,7 @@ func TestGetValueHandler(t *testing.T) {
 			repo, err := newTestRepo(false)
 			require.NoError(t, err)
 			s := StorageController{
-				storage: storage.NewMetricsStorage(repo, uint(timeout)),
+				storage: storage.NewMetricsStorage(repo, timeout),
 				l:       logrus.StandardLogger(),
 			}
 			err = s.getValueHandler(ctx)
@@ -502,7 +505,7 @@ func TestGetValueHandler(t *testing.T) {
 
 func TestGetValueJSONHandler(t *testing.T) {
 	url := "/value/"
-	timeout := 10
+	timeout := 10 * time.Second
 
 	type want struct {
 		status      int
@@ -549,7 +552,7 @@ func TestGetValueJSONHandler(t *testing.T) {
 			repo, err := newTestRepo(false)
 			require.NoError(t, err)
 			s := StorageController{
-				storage: storage.NewMetricsStorage(repo, uint(timeout)),
+				storage: storage.NewMetricsStorage(repo, timeout),
 				l:       logrus.StandardLogger(),
 			}
 			err = s.getValueJSONHandler(ctx)
@@ -565,7 +568,7 @@ func TestGetValueJSONHandler(t *testing.T) {
 }
 
 func TestGetAllHandler(t *testing.T) {
-	timeout := 10
+	timeout := 10 * time.Second
 
 	type args struct {
 		url    string
@@ -608,7 +611,7 @@ func TestGetAllHandler(t *testing.T) {
 			repo, err := newTestRepo(false)
 			require.NoError(t, err)
 			s := StorageController{
-				storage: storage.NewMetricsStorage(repo, uint(timeout)),
+				storage: storage.NewMetricsStorage(repo, timeout),
 				l:       logrus.StandardLogger(),
 			}
 			err = s.getAllHandler(ctx)
@@ -642,7 +645,7 @@ func TestGetAllHandler(t *testing.T) {
 }
 
 func TestPing(t *testing.T) {
-	timeout := 10
+	timeout := 10 * time.Second
 
 	rec := httptest.NewRecorder()
 	ctx, err := newEchoContext(rec, http.MethodGet, "/ping", nil, nil)
@@ -652,7 +655,7 @@ func TestPing(t *testing.T) {
 	require.NoError(t, err)
 
 	s := StorageController{
-		storage: storage.NewMetricsStorage(repo, uint(timeout)),
+		storage: storage.NewMetricsStorage(repo, timeout),
 		l:       logrus.StandardLogger(),
 	}
 	err = s.pingHandler(ctx)
@@ -665,7 +668,7 @@ func TestPing(t *testing.T) {
 }
 
 func BenchmarkUpdateHandler(b *testing.B) {
-	timeout := 10
+	timeout := 10 * time.Second
 	params := []string{"mtype", "mname", "value"}
 
 	b.ResetTimer()
@@ -678,7 +681,7 @@ func BenchmarkUpdateHandler(b *testing.B) {
 		repo, _ := newTestRepo(true)
 
 		s := StorageController{
-			storage: storage.NewMetricsStorage(repo, uint(timeout)),
+			storage: storage.NewMetricsStorage(repo, timeout),
 			l:       logrus.StandardLogger(),
 		}
 
@@ -697,7 +700,7 @@ func BenchmarkUpdateHandler(b *testing.B) {
 }
 
 func BenchmarkUpdateJSONHandler(b *testing.B) {
-	timeout := 10
+	timeout := 10 * time.Second
 
 	b.ResetTimer()
 
@@ -710,7 +713,7 @@ func BenchmarkUpdateJSONHandler(b *testing.B) {
 		repo, _ := newTestRepo(true)
 
 		s := StorageController{
-			storage: storage.NewMetricsStorage(repo, uint(timeout)),
+			storage: storage.NewMetricsStorage(repo, timeout),
 			l:       logrus.StandardLogger(),
 		}
 
@@ -729,7 +732,7 @@ func BenchmarkUpdateJSONHandler(b *testing.B) {
 }
 
 func BenchmarkUpdatesHandler(b *testing.B) {
-	timeout := 10
+	timeout := 10 * time.Second
 
 	b.ResetTimer()
 
@@ -745,7 +748,7 @@ func BenchmarkUpdatesHandler(b *testing.B) {
 		repo, _ := newTestRepo(true)
 
 		s := StorageController{
-			storage: storage.NewMetricsStorage(repo, uint(timeout)),
+			storage: storage.NewMetricsStorage(repo, timeout),
 			l:       logrus.StandardLogger(),
 		}
 
@@ -764,7 +767,7 @@ func BenchmarkUpdatesHandler(b *testing.B) {
 }
 
 func BenchmarkGetValueHandler(b *testing.B) {
-	timeout := 10
+	timeout := 10 * time.Second
 	params := []string{"mtype", "mname"}
 
 	b.ResetTimer()
@@ -777,7 +780,7 @@ func BenchmarkGetValueHandler(b *testing.B) {
 		repo, _ := newTestRepo(false)
 
 		s := StorageController{
-			storage: storage.NewMetricsStorage(repo, uint(timeout)),
+			storage: storage.NewMetricsStorage(repo, timeout),
 			l:       logrus.StandardLogger(),
 		}
 
@@ -796,7 +799,7 @@ func BenchmarkGetValueHandler(b *testing.B) {
 }
 
 func BenchmarkGetValueJSONHandler(b *testing.B) {
-	timeout := 10
+	timeout := 10 * time.Second
 
 	b.ResetTimer()
 
@@ -809,7 +812,7 @@ func BenchmarkGetValueJSONHandler(b *testing.B) {
 		repo, _ := newTestRepo(false)
 
 		s := StorageController{
-			storage: storage.NewMetricsStorage(repo, uint(timeout)),
+			storage: storage.NewMetricsStorage(repo, timeout),
 			l:       logrus.StandardLogger(),
 		}
 
@@ -828,7 +831,7 @@ func BenchmarkGetValueJSONHandler(b *testing.B) {
 }
 
 func BenchmarkGetAllHandler(b *testing.B) {
-	timeout := 10
+	timeout := 10 * time.Second
 
 	b.ResetTimer()
 
@@ -840,7 +843,7 @@ func BenchmarkGetAllHandler(b *testing.B) {
 		repo, _ := newTestRepo(false)
 
 		s := StorageController{
-			storage: storage.NewMetricsStorage(repo, uint(timeout)),
+			storage: storage.NewMetricsStorage(repo, timeout),
 			l:       logrus.StandardLogger(),
 		}
 
@@ -879,7 +882,12 @@ func Example() {
 	}()
 
 	// Маппинг обработчиков в инстанс echo.
-	if err := SetHandlers(e, stor, []byte("key"), lg); err != nil {
+	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		panic(err)
+	}
+
+	if err := SetHandlers(e, stor, []byte("key"), *privateKey, lg); err != nil {
 		panic(err)
 	}
 

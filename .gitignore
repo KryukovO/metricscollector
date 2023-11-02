@@ -25,3 +25,9 @@ vendor/
 # IDEs directories
 .idea
 .vscode
+
+# Other files
+public.key
+private.key
+agent.cfg
+server.cfg

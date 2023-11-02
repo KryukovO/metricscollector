@@ -15,10 +15,10 @@ type MetricsStorage struct {
 }
 
 // NewMetricsStorage создаёт новую структуру для взаимодействия с хранилищем.
-func NewMetricsStorage(repo Repo, timeout uint) *MetricsStorage {
+func NewMetricsStorage(repo Repo, timeout time.Duration) *MetricsStorage {
 	return &MetricsStorage{
 		repo:    repo,
-		timeout: time.Duration(timeout) * time.Second,
+		timeout: timeout,
 	}
 }
 

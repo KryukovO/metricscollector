@@ -41,6 +41,9 @@ linters-settings:
   errcheck:
     ignore: Write
 
+  gocognit:
+    min-complexity: 35
+
   gosec:
     excludes:
       - G108 # отключаем правило для работы с pprof 
@@ -55,3 +58,22 @@ linters-settings:
       - stdlib
       - generic
       - echo.Context
+  
+  tagliatelle:
+    case:
+      rules:
+        json: snake
+
+  testifylint:
+    enable:
+      - bool-compare
+      - compares
+      - empty
+      - error-is-as
+      - error-nil
+      - expected-actual
+      - float-compare
+      - len
+      - suite-dont-use-pkg
+      - suite-extra-assert-call
+      - suite-thelper

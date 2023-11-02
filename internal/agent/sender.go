@@ -4,6 +4,9 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -30,6 +33,7 @@ type Sender struct {
 	batchSize     uint
 	retries       []int
 	key           string
+	publicKey     rsa.PublicKey
 	l             *log.Logger
 }
 
@@ -54,10 +58,11 @@ func NewSender(cfg *config.Config, l *log.Logger) (*Sender, error) {
 	return &Sender{
 		serverAddress: cfg.ServerAddress,
 		rateLimit:     cfg.RateLimit,
-		httpTimeout:   time.Duration(cfg.HTTPTimeout) * time.Second,
+		httpTimeout:   cfg.HTTPTimeout.Duration,
 		batchSize:     cfg.BatchSize,
 		retries:       retries,
 		key:           cfg.Key,
+		publicKey:     cfg.PublicKey,
 		l:             lg,
 	}, nil
 }
@@ -178,6 +183,11 @@ func (snd *Sender) sendMetrics(ctx context.Context, client *http.Client, batch [
 	}
 
 	body, err := json.Marshal(batch)
+	if err != nil {
+		return err
+	}
+
+	body, err = rsa.EncryptOAEP(sha256.New(), rand.Reader, &snd.publicKey, body, nil)
 	if err != nil {
 		return err
 	}

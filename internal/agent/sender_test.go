@@ -2,12 +2,15 @@ package agent
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
 	"testing"
 	"time"
 
 	"github.com/KryukovO/metricscollector/internal/agent/config"
 	"github.com/KryukovO/metricscollector/internal/metric"
 	"github.com/KryukovO/metricscollector/internal/mocks"
+	"github.com/KryukovO/metricscollector/internal/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -30,6 +33,9 @@ func TestSend(t *testing.T) {
 		}
 	)
 
+	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	require.NoError(t, err)
+
 	server := mocks.NewMockServer()
 	defer server.Close()
 
@@ -39,8 +45,9 @@ func TestSend(t *testing.T) {
 			ServerAddress: server.URL,
 			Key:           "secret",
 			RateLimit:     2,
-			HTTPTimeout:   10,
+			HTTPTimeout:   utils.Duration{Duration: 10 * time.Second},
 			BatchSize:     1,
+			PublicKey:     privateKey.PublicKey,
 		},
 		nil,
 	)

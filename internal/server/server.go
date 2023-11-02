@@ -5,12 +5,10 @@ import (
 	"context"
 	"errors"
 	"net/http"
-	"os"
 	"os/signal"
 	"strconv"
 	"strings"
 	"syscall"
-	"time"
 
 	"github.com/KryukovO/metricscollector/internal/server/config"
 	"github.com/KryukovO/metricscollector/internal/server/handlers"
@@ -61,10 +59,10 @@ func (s *Server) Run(ctx context.Context) error {
 		retries = append(retries, interval)
 	}
 
-	sigCtx, sigCancel := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
+	sigCtx, sigCancel := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 	defer sigCancel()
 
-	repoCtx, cancel := context.WithTimeout(sigCtx, time.Duration(s.cfg.StoreTimeout)*time.Second)
+	repoCtx, cancel := context.WithTimeout(sigCtx, s.cfg.StoreTimeout.Duration)
 	defer cancel()
 
 	s.l.Info("Connecting to the repository...")
@@ -72,14 +70,17 @@ func (s *Server) Run(ctx context.Context) error {
 	if s.cfg.DSN != "" {
 		repo, err = pgstorage.NewPgStorage(repoCtx, s.cfg.DSN, s.cfg.Migrations, retries)
 	} else {
-		repo, err = memstorage.NewMemStorage(repoCtx, s.cfg.FileStoragePath, s.cfg.Restore, s.cfg.StoreInterval, retries, s.l)
+		repo, err = memstorage.NewMemStorage(
+			repoCtx, s.cfg.FileStoragePath, s.cfg.Restore,
+			s.cfg.StoreInterval.Duration, retries, s.l,
+		)
 	}
 
 	if err != nil {
 		return err
 	}
 
-	stor := storage.NewMetricsStorage(repo, s.cfg.StoreTimeout)
+	stor := storage.NewMetricsStorage(repo, s.cfg.StoreTimeout.Duration)
 	defer func() {
 		stor.Close()
 
@@ -92,7 +93,7 @@ func (s *Server) Run(ctx context.Context) error {
 	e.HideBanner = true
 	e.HidePort = true
 
-	if err := handlers.SetHandlers(e, stor, []byte(s.cfg.Key), s.l); err != nil {
+	if err := handlers.SetHandlers(e, stor, []byte(s.cfg.Key), s.cfg.PrivateKey, s.l); err != nil {
 		return err
 	}
 
@@ -119,7 +120,7 @@ func (s *Server) Run(ctx context.Context) error {
 
 		s.l.Info("Stopping server...")
 
-		shutdownCtx, cancel := context.WithTimeout(ctx, time.Duration(s.cfg.ShutdownTimeout)*time.Second)
+		shutdownCtx, cancel := context.WithTimeout(ctx, s.cfg.ShutdownTimeout.Duration)
 		defer cancel()
 
 		if err := e.Shutdown(shutdownCtx); err != nil {

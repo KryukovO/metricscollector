@@ -5,7 +5,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os/signal"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/KryukovO/metricscollector/internal/agent/config"
@@ -26,8 +28,8 @@ var (
 
 // Agent содержит основные параметры агента.
 type Agent struct {
-	pollInterval   uint
-	reportInterval uint
+	pollInterval   time.Duration
+	reportInterval time.Duration
 	sender         *Sender
 	l              *log.Logger
 }
@@ -45,15 +47,15 @@ func NewAgent(cfg *config.Config, l *log.Logger) (*Agent, error) {
 	}
 
 	return &Agent{
-		pollInterval:   cfg.PollInterval,
-		reportInterval: cfg.ReportInterval,
+		pollInterval:   cfg.PollInterval.Duration,
+		reportInterval: cfg.ReportInterval.Duration,
 		sender:         sender,
 		l:              lg,
 	}, nil
 }
 
 // Run выполняет запуск процессов сканирования и отправки метрик в хранилище.
-func (a *Agent) Run() error {
+func (a *Agent) Run(ctx context.Context) error {
 	a.l.Info("Agent is running...")
 
 	var (
@@ -63,19 +65,27 @@ func (a *Agent) Run() error {
 		err       error
 	)
 
-	scanTicker := time.NewTicker(time.Duration(a.pollInterval) * time.Second)
-	sendTicker := time.NewTicker(time.Duration(a.reportInterval) * time.Second)
+	scanTicker := time.NewTicker(a.pollInterval)
+	sendTicker := time.NewTicker(a.reportInterval)
 
-	g, ctx := errgroup.WithContext(context.Background())
+	sigCtx, sigCancel := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
+	defer sigCancel()
+
+	g, gCtx := errgroup.WithContext(ctx)
 
 	g.Go(func() error {
 		for {
 			select {
-			case <-ctx.Done():
+			case <-gCtx.Done():
+				return nil
+
+			case <-sigCtx.Done():
+				a.l.Info("Metrics scanner stopped gracefully")
+
 				return nil
 
 			case <-scanTicker.C:
-				metricCh := ScanMetrics(ctx)
+				metricCh := ScanMetrics(gCtx)
 
 				mtx.Lock()
 
@@ -99,22 +109,36 @@ func (a *Agent) Run() error {
 	g.Go(func() error {
 		for {
 			select {
-			case <-ctx.Done():
+			case <-gCtx.Done():
+				return nil
+
+			case <-sigCtx.Done():
+				mtx.Lock()
+
+				sndStorage, err := metricsPreparation(storage, scanCount)
+				if err != nil {
+					return err
+				}
+
+				mtx.Unlock()
+
+				if err = a.sender.Send(ctx, sndStorage); err != nil {
+					return err
+				}
+
+				a.l.Info("Metrics sender stopped gracefully")
+
 				return nil
 
 			case <-sendTicker.C:
 				mtx.Lock()
 
-				pollCount, err := metric.NewMetrics("PollCount", "", scanCount)
+				sndStorage, err := metricsPreparation(storage, scanCount)
 				if err != nil {
 					return err
 				}
 
-				storage = append(storage, pollCount)
 				scanCount = 0
-				sndStorage := make([]metric.Metrics, len(storage))
-
-				copy(sndStorage, storage)
 
 				mtx.Unlock()
 
@@ -126,4 +150,19 @@ func (a *Agent) Run() error {
 	})
 
 	return g.Wait()
+}
+
+// metricsPreparation выполняет подготовку метрик к отправке на сервер.
+func metricsPreparation(storage []metric.Metrics, scanCount int64) ([]metric.Metrics, error) {
+	pollCount, err := metric.NewMetrics("PollCount", "", scanCount)
+	if err != nil {
+		return nil, err
+	}
+
+	storage = append(storage, pollCount)
+	sndStorage := make([]metric.Metrics, len(storage))
+
+	copy(sndStorage, storage)
+
+	return sndStorage, nil
 }

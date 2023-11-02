@@ -226,7 +226,7 @@ func TestUpdate(t *testing.T) {
 
 			if test.wantErr {
 				assert.Error(t, err)
-				assert.Equal(t, true, len(s.storage) == len(storage), "The update returned an error, but the value was saved")
+				assert.Len(t, s.storage, len(storage), "The update returned an error, but the value was saved")
 
 				return
 			}
@@ -234,13 +234,13 @@ func TestUpdate(t *testing.T) {
 			assert.NoError(t, err)
 
 			if test.newMetric {
-				require.Equal(
-					t, true, len(s.storage) == len(storage)+1,
+				require.Len(
+					t, s.storage, len(storage)+1,
 					"The new metric update was successful, but no value was added.",
 				)
 			} else {
-				require.Equal(
-					t, true, len(s.storage) == len(storage),
+				require.Len(
+					t, s.storage, len(storage),
 					"The update to an existing metric was successful, but the value was added rather than changed.",
 				)
 			}
@@ -349,8 +349,8 @@ func TestUpdateMany(t *testing.T) {
 
 			if test.wantErr {
 				assert.Error(t, err)
-				assert.Equal(
-					t, true, len(s.storage) == len(storage),
+				assert.Len(
+					t, s.storage, len(storage),
 					"The update returned an error, but the value was saved.",
 				)
 
@@ -360,13 +360,13 @@ func TestUpdateMany(t *testing.T) {
 			assert.NoError(t, err)
 
 			if test.newMetrics {
-				require.Equal(
-					t, true, len(s.storage) == len(storage)+len(test.arg),
+				require.Len(
+					t, s.storage, len(storage)+len(test.arg),
 					"Updating new metrics was successful, but no value was added.",
 				)
 			} else {
-				require.Equal(
-					t, true, len(s.storage) == len(storage),
+				require.Len(
+					t, s.storage, len(storage),
 					"Updating existing metrics was successful, but values was added rather than changed.",
 				)
 			}

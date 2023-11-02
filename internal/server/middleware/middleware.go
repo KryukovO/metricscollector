@@ -3,6 +3,8 @@ package middleware
 
 import (
 	"bytes"
+	"crypto"
+	"crypto/rsa"
 	"encoding/hex"
 	"errors"
 	"io"
@@ -18,18 +20,19 @@ import (
 
 // Manager предназначен для управления middleware.
 type Manager struct {
-	key []byte
-	l   *log.Logger
+	key        []byte
+	privateKey rsa.PrivateKey
+	l          *log.Logger
 }
 
 // NewManager создаёт новый объект Manager.
-func NewManager(key []byte, l *log.Logger) *Manager {
+func NewManager(key []byte, privateKey rsa.PrivateKey, l *log.Logger) *Manager {
 	lg := log.StandardLogger()
 	if l != nil {
 		lg = l
 	}
 
-	return &Manager{key: key, l: lg}
+	return &Manager{key: key, privateKey: privateKey, l: lg}
 }
 
 // LoggingMiddleware - middleware для логирования входящих запросов и их результатов.
@@ -152,5 +155,30 @@ func (mw *Manager) HashMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 		}
 
 		return next(ctx)
+	})
+}
+
+// RSAMiddleware - middleware для дешифрования входящего запроса.
+func (mw *Manager) RSAMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
+	return echo.HandlerFunc(func(e echo.Context) error {
+		uuid := e.Get("uuid")
+
+		body, err := io.ReadAll(e.Request().Body)
+		if err != nil {
+			mw.l.Errorf("[%s] something went wrong: %s", uuid, err.Error())
+
+			return e.NoContent(http.StatusInternalServerError)
+		}
+
+		body, err = mw.privateKey.Decrypt(nil, body, &rsa.OAEPOptions{Hash: crypto.SHA256})
+		if err != nil {
+			mw.l.Errorf("[%s] something went wrong: %s", uuid, err.Error())
+
+			return e.NoContent(http.StatusInternalServerError)
+		}
+
+		e.Request().Body = io.NopCloser(bytes.NewBuffer(body))
+
+		return next(e)
 	})
 }
