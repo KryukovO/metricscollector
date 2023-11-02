@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"io"
+	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -20,19 +21,25 @@ import (
 
 // Manager предназначен для управления middleware.
 type Manager struct {
-	key        []byte
-	privateKey rsa.PrivateKey
-	l          *log.Logger
+	key         []byte
+	privateKey  *rsa.PrivateKey
+	trustedSNet *net.IPNet
+	l           *log.Logger
 }
 
 // NewManager создаёт новый объект Manager.
-func NewManager(key []byte, privateKey rsa.PrivateKey, l *log.Logger) *Manager {
+func NewManager(key []byte, privateKey *rsa.PrivateKey, trustedSNet *net.IPNet, l *log.Logger) *Manager {
 	lg := log.StandardLogger()
 	if l != nil {
 		lg = l
 	}
 
-	return &Manager{key: key, privateKey: privateKey, l: lg}
+	return &Manager{
+		key:         key,
+		privateKey:  privateKey,
+		trustedSNet: trustedSNet,
+		l:           lg,
+	}
 }
 
 // LoggingMiddleware - middleware для логирования входящих запросов и их результатов.
@@ -163,6 +170,10 @@ func (mw *Manager) RSAMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 	return echo.HandlerFunc(func(e echo.Context) error {
 		uuid := e.Get("uuid")
 
+		if mw.privateKey == nil {
+			return next(e)
+		}
+
 		body, err := io.ReadAll(e.Request().Body)
 		if err != nil {
 			mw.l.Errorf("[%s] something went wrong: %s", uuid, err.Error())
@@ -178,6 +189,29 @@ func (mw *Manager) RSAMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 		}
 
 		e.Request().Body = io.NopCloser(bytes.NewBuffer(body))
+
+		return next(e)
+	})
+}
+
+// IPValidationMiddleware - middleware для проверки IP отправителя запроса
+// на соответствие доверенной подсети.
+func (mw *Manager) IPValidationMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
+	return echo.HandlerFunc(func(e echo.Context) error {
+		if mw.trustedSNet == nil {
+			return next(e)
+		}
+
+		ipStr := e.Request().Header.Get("X-Real-IP")
+
+		ip := net.ParseIP(ipStr)
+		if ip == nil {
+			return e.NoContent(http.StatusForbidden)
+		}
+
+		if !mw.trustedSNet.Contains(ip) {
+			return e.NoContent(http.StatusForbidden)
+		}
 
 		return next(e)
 	})

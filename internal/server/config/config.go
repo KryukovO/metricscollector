@@ -23,7 +23,8 @@ const (
 	restore         = true                   // Признак загрузки значений метрик из файла при запуске сервера по умолчанию
 	dsn             = ""                     // Адрес подключения к БД по умолчанию
 	key             = ""                     // Ключ аутентификации по умолчанию
-	cryptoKey       = "private.key"          // Путь до файла с приватным ключом
+	cryptoKey       = ""                     // Путь до файла с приватным ключом
+	trastesSNet     = ""                     // Подсеть доверенных адресов
 
 	storeTimeout    = 5 * time.Second  // Таймаут выполнения операций с хранилищем по умолчанию
 	shutdownTimeout = 10 * time.Second // Таймаут для graceful shutdown сервера по умолчанию
@@ -50,6 +51,8 @@ type Config struct {
 	Key string `env:"KEY" json:"-"`
 	// CryptoKey - Путь до файла с приватным ключом
 	CryptoKey string `env:"CRYPTO_KEY" json:"crypto_key"`
+	// TrustedSNet - Подсеть доверенных адресов
+	TrustedSNet string `env:"TRUSTED_SUBNET" json:"trusted_subnet"`
 
 	// StoreTimeout -Таймаут выполнения операций с хранилищем
 	StoreTimeout utils.Duration `json:"-"`
@@ -60,7 +63,7 @@ type Config struct {
 	// Migrations - Путь до директории с файлами миграции
 	Migrations string `json:"-"`
 	// PrivateKey - Значение приватного ключа
-	PrivateKey rsa.PrivateKey `json:"-"`
+	PrivateKey *rsa.PrivateKey `json:"-"`
 }
 
 // NewConfig создаёт новый конфиг сервера.
@@ -79,6 +82,7 @@ func NewConfig() (*Config, error) {
 	flag.StringVar(&cfg.DSN, "d", dsn, "Data source name")
 	flag.StringVar(&cfg.Key, "k", key, "Server key")
 	flag.StringVar(&cfg.CryptoKey, "crypto-key", cryptoKey, "Path to file with private cryptographic key")
+	flag.StringVar(&cfg.TrustedSNet, "t", trastesSNet, "Trusted subnet")
 
 	flag.DurationVar(&cfg.StoreTimeout.Duration, "timeout", storeTimeout, "Storage connection timeout")
 	flag.DurationVar(&cfg.ShutdownTimeout.Duration, "shutdown", shutdownTimeout, "Graceful shutdown timeout")
@@ -99,22 +103,24 @@ func NewConfig() (*Config, error) {
 		return nil, fmt.Errorf("env parsing error: %w", err)
 	}
 
-	content, err := os.ReadFile(cfg.CryptoKey)
-	if err != nil {
-		return nil, err
-	}
+	if cfg.CryptoKey != "" {
+		content, err := os.ReadFile(cfg.CryptoKey)
+		if err != nil {
+			return nil, err
+		}
 
-	pkPEM, _ := pem.Decode(content)
-	if pkPEM == nil {
-		return nil, ErrPrivateKeyNotFound
-	}
+		pkPEM, _ := pem.Decode(content)
+		if pkPEM == nil {
+			return nil, ErrPrivateKeyNotFound
+		}
 
-	privateKey, err := x509.ParsePKCS1PrivateKey(pkPEM.Bytes)
-	if err != nil {
-		return nil, err
-	}
+		privateKey, err := x509.ParsePKCS1PrivateKey(pkPEM.Bytes)
+		if err != nil {
+			return nil, err
+		}
 
-	cfg.PrivateKey = *privateKey
+		cfg.PrivateKey = privateKey
+	}
 
 	return cfg, nil
 }
@@ -154,6 +160,10 @@ func (cfg *Config) parseFile(path string) error {
 
 	if !utils.IsFlagPassed("crypto-key") {
 		cfg.CryptoKey = fileConf.CryptoKey
+	}
+
+	if !utils.IsFlagPassed("t") {
+		cfg.TrustedSNet = fileConf.TrustedSNet
 	}
 
 	return nil

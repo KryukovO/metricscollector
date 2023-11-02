@@ -4,6 +4,7 @@ package server
 import (
 	"context"
 	"errors"
+	"net"
 	"net/http"
 	"os/signal"
 	"strconv"
@@ -93,7 +94,12 @@ func (s *Server) Run(ctx context.Context) error {
 	e.HideBanner = true
 	e.HidePort = true
 
-	if err := handlers.SetHandlers(e, stor, []byte(s.cfg.Key), s.cfg.PrivateKey, s.l); err != nil {
+	_, ipNet, err := net.ParseCIDR(s.cfg.TrustedSNet)
+	if err != nil {
+		return err
+	}
+
+	if err := handlers.SetHandlers(e, stor, []byte(s.cfg.Key), s.cfg.PrivateKey, ipNet, s.l); err != nil {
 		return err
 	}
 

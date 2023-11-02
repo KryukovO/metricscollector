@@ -4,6 +4,7 @@ package handlers
 import (
 	"crypto/rsa"
 	"errors"
+	"net"
 
 	"github.com/KryukovO/metricscollector/internal/server/middleware"
 	"github.com/KryukovO/metricscollector/internal/storage"
@@ -20,7 +21,11 @@ var (
 
 // SetHandlers инициирует маппинг маршрутов и обработчиков в инстанс echo,
 // а также выстраивает цепочку middleware.
-func SetHandlers(e *echo.Echo, s storage.Storage, key []byte, privateKey rsa.PrivateKey, l *log.Logger) error {
+func SetHandlers(
+	e *echo.Echo, s storage.Storage,
+	key []byte, privateKey *rsa.PrivateKey, trustedSNet *net.IPNet,
+	l *log.Logger,
+) error {
 	if e == nil {
 		return ErrServerIsNil
 	}
@@ -34,7 +39,7 @@ func SetHandlers(e *echo.Echo, s storage.Storage, key []byte, privateKey rsa.Pri
 		return err
 	}
 
-	mw := middleware.NewManager(key, privateKey, l)
+	mw := middleware.NewManager(key, privateKey, trustedSNet, l)
 	e.Use(
 		mw.LoggingMiddleware,
 		mw.GZipMiddleware,

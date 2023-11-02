@@ -32,7 +32,7 @@ func TestRun(t *testing.T) {
 			RateLimit:      2,
 			HTTPTimeout:    utils.Duration{Duration: 10 * time.Second},
 			BatchSize:      1,
-			PublicKey:      privateKey.PublicKey,
+			PublicKey:      &privateKey.PublicKey,
 		},
 		logrus.StandardLogger(),
 	)

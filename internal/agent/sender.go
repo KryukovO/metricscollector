@@ -33,7 +33,8 @@ type Sender struct {
 	batchSize     uint
 	retries       []int
 	key           string
-	publicKey     rsa.PublicKey
+	publicKey     *rsa.PublicKey
+	ip            string
 	l             *log.Logger
 }
 
@@ -55,6 +56,11 @@ func NewSender(cfg *config.Config, l *log.Logger) (*Sender, error) {
 		retries = append(retries, interval)
 	}
 
+	ip, err := utils.LocalIP()
+	if err != nil {
+		return nil, err
+	}
+
 	return &Sender{
 		serverAddress: cfg.ServerAddress,
 		rateLimit:     cfg.RateLimit,
@@ -63,6 +69,7 @@ func NewSender(cfg *config.Config, l *log.Logger) (*Sender, error) {
 		retries:       retries,
 		key:           cfg.Key,
 		publicKey:     cfg.PublicKey,
+		ip:            ip.String(),
 		l:             lg,
 	}, nil
 }
@@ -187,9 +194,11 @@ func (snd *Sender) sendMetrics(ctx context.Context, client *http.Client, batch [
 		return err
 	}
 
-	body, err = rsa.EncryptOAEP(sha256.New(), rand.Reader, &snd.publicKey, body, nil)
-	if err != nil {
-		return err
+	if snd.publicKey != nil {
+		body, err = rsa.EncryptOAEP(sha256.New(), rand.Reader, snd.publicKey, body, nil)
+		if err != nil {
+			return err
+		}
 	}
 
 	buf := &bytes.Buffer{}
@@ -208,6 +217,7 @@ func (snd *Sender) sendMetrics(ctx context.Context, client *http.Client, batch [
 
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Set("Content-Encoding", "gzip")
+	req.Header.Set("X-Real-IP", snd.ip)
 
 	if snd.key != "" {
 		hash, hashErr := utils.HashSHA256(body, []byte(snd.key))

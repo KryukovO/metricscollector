@@ -1,7 +1,7 @@
 .PHONY: build test cover cover-html bench lint static
 
 BUILDDATE=$(shell date +'%d-%m-%Y')
-BUILDVERSION=v0.0.23
+BUILDVERSION=v0.0.24
 
 build:
 	go build -o cmd/agent/agent -ldflags "-X main.buildVersion=${BUILDVERSION} -X main.buildDate=${BUILDDATE}" cmd/agent/main.go

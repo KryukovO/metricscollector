@@ -887,7 +887,7 @@ func Example() {
 		panic(err)
 	}
 
-	if err := SetHandlers(e, stor, []byte("key"), *privateKey, lg); err != nil {
+	if err := SetHandlers(e, stor, []byte("key"), privateKey, nil, lg); err != nil {
 		panic(err)
 	}
 

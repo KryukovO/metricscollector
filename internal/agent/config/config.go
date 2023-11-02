@@ -22,7 +22,7 @@ const (
 	pollInterval   = 2 * time.Second  // Интервал сканирования метрик в секундах по умолчанию
 	key            = ""               // Значения ключа аутентификации по умолчанию
 	rateLimit      = 3                // Количество одновременно исходящих запросов на сервер по умолчанию
-	cryptoKey      = "public.key"     // Путь до файла с публичным ключом
+	cryptoKey      = ""               // Путь до файла с публичным ключом
 
 	httpTimeout = 5 * time.Second // Таймаут соединения с сервером по умолчанию
 	batchSize   = 5               // Количество посылаемых за раз метрик по умолчанию
@@ -54,7 +54,7 @@ type Config struct {
 	// Retries - Интервалы попыток соединения с сервером через запятую
 	Retries string `json:"-"`
 	// PublicKey - Значение публичного ключа
-	PublicKey rsa.PublicKey `json:"-"`
+	PublicKey *rsa.PublicKey `json:"-"`
 }
 
 // NewConfig создаёт новый конфиг агента.
@@ -91,22 +91,24 @@ func NewConfig() (*Config, error) {
 		return nil, fmt.Errorf("env parsing error: %w", err)
 	}
 
-	content, err := os.ReadFile(cfg.CryptoKey)
-	if err != nil {
-		return nil, err
-	}
+	if cfg.CryptoKey != "" {
+		content, err := os.ReadFile(cfg.CryptoKey)
+		if err != nil {
+			return nil, err
+		}
 
-	pkPEM, _ := pem.Decode(content)
-	if pkPEM == nil {
-		return nil, ErrPublicKeyNotFound
-	}
+		pkPEM, _ := pem.Decode(content)
+		if pkPEM == nil {
+			return nil, ErrPublicKeyNotFound
+		}
 
-	publicKey, err := x509.ParsePKCS1PublicKey(pkPEM.Bytes)
-	if err != nil {
-		return nil, err
-	}
+		publicKey, err := x509.ParsePKCS1PublicKey(pkPEM.Bytes)
+		if err != nil {
+			return nil, err
+		}
 
-	cfg.PublicKey = *publicKey
+		cfg.PublicKey = publicKey
+	}
 
 	return cfg, nil
 }
