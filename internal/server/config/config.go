@@ -17,7 +17,8 @@ import (
 )
 
 const (
-	httpAddress     = "localhost:8080"       // Адрес эндпоинта сервера (host:port) по умолчанию
+	httpAddress     = "localhost:8080"       // Адрес эндпоинта HTTP-сервера (host:port) по умолчанию
+	grpcAddress     = "localhost:8081"       // Адрес эндпоинта gRPC-сервера (host:port) по умолчанию
 	storeInterval   = 300 * time.Second      // Интервал сохранения значения метрик в файл в секундах по умолчанию
 	fileStoragePath = "/tmp/metrics-db.json" // Полное имя файла, куда сохраняются текущие значения метрик по умолчанию
 	restore         = true                   // Признак загрузки значений метрик из файла при запуске сервера по умолчанию
@@ -37,8 +38,10 @@ var ErrPrivateKeyNotFound = errors.New("private RSA key data not found")
 
 // Config содержит параметры конфигурации модуля-сервера.
 type Config struct {
-	// HTTPAddress - Адрес эндпоинта сервера (host:port)
+	// HTTPAddress - Адрес эндпоинта HTTP-сервера (host:port)
 	HTTPAddress string `env:"ADDRESS" json:"address"`
+	// GRPCAddress - Адрес эндпоинта gRPC-сервера (host:port)
+	GRPCAddress string `env:"GADDRESS" json:"gaddress"`
 	// StoreInterval - Интервал сохранения значения метрик в файл в секундах
 	StoreInterval utils.Duration `env:"STORE_INTERVAL" json:"store_interval"`
 	// FileStoragePath - Полное имя файла, куда сохраняются текущие значения метрик
@@ -75,7 +78,8 @@ func NewConfig() (*Config, error) {
 	flag.StringVar(&configPath, "c", "", "Configuration file path")
 	flag.StringVar(&configPath, "config", "", "Configuration file path")
 
-	flag.StringVar(&cfg.HTTPAddress, "a", httpAddress, "Server endpoint address")
+	flag.StringVar(&cfg.HTTPAddress, "a", httpAddress, "HTTP-server endpoint address")
+	flag.StringVar(&cfg.GRPCAddress, "g", grpcAddress, "gRPC-server endpoint address")
 	flag.DurationVar(&cfg.StoreInterval.Duration, "i", storeInterval, "Store interval")
 	flag.StringVar(&cfg.FileStoragePath, "f", fileStoragePath, "File storage path")
 	flag.BoolVar(&cfg.Restore, "r", restore, "Restore")
@@ -140,6 +144,10 @@ func (cfg *Config) parseFile(path string) error {
 
 	if !utils.IsFlagPassed("a") {
 		cfg.HTTPAddress = fileConf.HTTPAddress
+	}
+
+	if !utils.IsFlagPassed("g") {
+		cfg.GRPCAddress = fileConf.GRPCAddress
 	}
 
 	if !utils.IsFlagPassed("r") {

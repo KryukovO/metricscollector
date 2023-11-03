@@ -20,16 +20,16 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	StorageServer_Update_FullMethodName     = "/server.StorageServer/Update"
-	StorageServer_UpdateMany_FullMethodName = "/server.StorageServer/UpdateMany"
-	StorageServer_Metric_FullMethodName     = "/server.StorageServer/Metric"
-	StorageServer_AllMetrics_FullMethodName = "/server.StorageServer/AllMetrics"
+	Storage_Update_FullMethodName     = "/server.Storage/Update"
+	Storage_UpdateMany_FullMethodName = "/server.Storage/UpdateMany"
+	Storage_Metric_FullMethodName     = "/server.Storage/Metric"
+	Storage_AllMetrics_FullMethodName = "/server.Storage/AllMetrics"
 )
 
-// StorageServerClient is the client API for StorageServer service.
+// StorageClient is the client API for Storage service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
-type StorageServerClient interface {
+type StorageClient interface {
 	// Update выполняет обновление единственной метрики.
 	Update(ctx context.Context, in *UpdateRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// UpdateMany выполняет обновления набора метрик.
@@ -40,54 +40,54 @@ type StorageServerClient interface {
 	AllMetrics(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*AllMetricsResponse, error)
 }
 
-type storageServerClient struct {
+type storageClient struct {
 	cc grpc.ClientConnInterface
 }
 
-func NewStorageServerClient(cc grpc.ClientConnInterface) StorageServerClient {
-	return &storageServerClient{cc}
+func NewStorageClient(cc grpc.ClientConnInterface) StorageClient {
+	return &storageClient{cc}
 }
 
-func (c *storageServerClient) Update(ctx context.Context, in *UpdateRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *storageClient) Update(ctx context.Context, in *UpdateRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, StorageServer_Update_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, Storage_Update_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *storageServerClient) UpdateMany(ctx context.Context, in *UpdateManyRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *storageClient) UpdateMany(ctx context.Context, in *UpdateManyRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, StorageServer_UpdateMany_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, Storage_UpdateMany_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *storageServerClient) Metric(ctx context.Context, in *MetricRequest, opts ...grpc.CallOption) (*MetricResponse, error) {
+func (c *storageClient) Metric(ctx context.Context, in *MetricRequest, opts ...grpc.CallOption) (*MetricResponse, error) {
 	out := new(MetricResponse)
-	err := c.cc.Invoke(ctx, StorageServer_Metric_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, Storage_Metric_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *storageServerClient) AllMetrics(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*AllMetricsResponse, error) {
+func (c *storageClient) AllMetrics(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*AllMetricsResponse, error) {
 	out := new(AllMetricsResponse)
-	err := c.cc.Invoke(ctx, StorageServer_AllMetrics_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, Storage_AllMetrics_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-// StorageServerServer is the server API for StorageServer service.
-// All implementations must embed UnimplementedStorageServerServer
+// StorageServer is the server API for Storage service.
+// All implementations must embed UnimplementedStorageServer
 // for forward compatibility
-type StorageServerServer interface {
+type StorageServer interface {
 	// Update выполняет обновление единственной метрики.
 	Update(context.Context, *UpdateRequest) (*emptypb.Empty, error)
 	// UpdateMany выполняет обновления набора метрик.
@@ -96,132 +96,132 @@ type StorageServerServer interface {
 	Metric(context.Context, *MetricRequest) (*MetricResponse, error)
 	// AllMetrics описание всех метрик из хранилища.
 	AllMetrics(context.Context, *emptypb.Empty) (*AllMetricsResponse, error)
-	mustEmbedUnimplementedStorageServerServer()
+	mustEmbedUnimplementedStorageServer()
 }
 
-// UnimplementedStorageServerServer must be embedded to have forward compatible implementations.
-type UnimplementedStorageServerServer struct {
+// UnimplementedStorageServer must be embedded to have forward compatible implementations.
+type UnimplementedStorageServer struct {
 }
 
-func (UnimplementedStorageServerServer) Update(context.Context, *UpdateRequest) (*emptypb.Empty, error) {
+func (UnimplementedStorageServer) Update(context.Context, *UpdateRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Update not implemented")
 }
-func (UnimplementedStorageServerServer) UpdateMany(context.Context, *UpdateManyRequest) (*emptypb.Empty, error) {
+func (UnimplementedStorageServer) UpdateMany(context.Context, *UpdateManyRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UpdateMany not implemented")
 }
-func (UnimplementedStorageServerServer) Metric(context.Context, *MetricRequest) (*MetricResponse, error) {
+func (UnimplementedStorageServer) Metric(context.Context, *MetricRequest) (*MetricResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Metric not implemented")
 }
-func (UnimplementedStorageServerServer) AllMetrics(context.Context, *emptypb.Empty) (*AllMetricsResponse, error) {
+func (UnimplementedStorageServer) AllMetrics(context.Context, *emptypb.Empty) (*AllMetricsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method AllMetrics not implemented")
 }
-func (UnimplementedStorageServerServer) mustEmbedUnimplementedStorageServerServer() {}
+func (UnimplementedStorageServer) mustEmbedUnimplementedStorageServer() {}
 
-// UnsafeStorageServerServer may be embedded to opt out of forward compatibility for this service.
-// Use of this interface is not recommended, as added methods to StorageServerServer will
+// UnsafeStorageServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to StorageServer will
 // result in compilation errors.
-type UnsafeStorageServerServer interface {
-	mustEmbedUnimplementedStorageServerServer()
+type UnsafeStorageServer interface {
+	mustEmbedUnimplementedStorageServer()
 }
 
-func RegisterStorageServerServer(s grpc.ServiceRegistrar, srv StorageServerServer) {
-	s.RegisterService(&StorageServer_ServiceDesc, srv)
+func RegisterStorageServer(s grpc.ServiceRegistrar, srv StorageServer) {
+	s.RegisterService(&Storage_ServiceDesc, srv)
 }
 
-func _StorageServer_Update_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _Storage_Update_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(UpdateRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(StorageServerServer).Update(ctx, in)
+		return srv.(StorageServer).Update(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: StorageServer_Update_FullMethodName,
+		FullMethod: Storage_Update_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(StorageServerServer).Update(ctx, req.(*UpdateRequest))
+		return srv.(StorageServer).Update(ctx, req.(*UpdateRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _StorageServer_UpdateMany_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _Storage_UpdateMany_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(UpdateManyRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(StorageServerServer).UpdateMany(ctx, in)
+		return srv.(StorageServer).UpdateMany(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: StorageServer_UpdateMany_FullMethodName,
+		FullMethod: Storage_UpdateMany_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(StorageServerServer).UpdateMany(ctx, req.(*UpdateManyRequest))
+		return srv.(StorageServer).UpdateMany(ctx, req.(*UpdateManyRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _StorageServer_Metric_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _Storage_Metric_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(MetricRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(StorageServerServer).Metric(ctx, in)
+		return srv.(StorageServer).Metric(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: StorageServer_Metric_FullMethodName,
+		FullMethod: Storage_Metric_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(StorageServerServer).Metric(ctx, req.(*MetricRequest))
+		return srv.(StorageServer).Metric(ctx, req.(*MetricRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _StorageServer_AllMetrics_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _Storage_AllMetrics_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(emptypb.Empty)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(StorageServerServer).AllMetrics(ctx, in)
+		return srv.(StorageServer).AllMetrics(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: StorageServer_AllMetrics_FullMethodName,
+		FullMethod: Storage_AllMetrics_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(StorageServerServer).AllMetrics(ctx, req.(*emptypb.Empty))
+		return srv.(StorageServer).AllMetrics(ctx, req.(*emptypb.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-// StorageServer_ServiceDesc is the grpc.ServiceDesc for StorageServer service.
+// Storage_ServiceDesc is the grpc.ServiceDesc for Storage service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
-var StorageServer_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "server.StorageServer",
-	HandlerType: (*StorageServerServer)(nil),
+var Storage_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "server.Storage",
+	HandlerType: (*StorageServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
 			MethodName: "Update",
-			Handler:    _StorageServer_Update_Handler,
+			Handler:    _Storage_Update_Handler,
 		},
 		{
 			MethodName: "UpdateMany",
-			Handler:    _StorageServer_UpdateMany_Handler,
+			Handler:    _Storage_UpdateMany_Handler,
 		},
 		{
 			MethodName: "Metric",
-			Handler:    _StorageServer_Metric_Handler,
+			Handler:    _Storage_Metric_Handler,
 		},
 		{
 			MethodName: "AllMetrics",
-			Handler:    _StorageServer_AllMetrics_Handler,
+			Handler:    _Storage_AllMetrics_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

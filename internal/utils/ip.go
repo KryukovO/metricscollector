@@ -5,8 +5,10 @@ import (
 	"net"
 )
 
+// ErrNoIP возвращается, если метод LocalIP не смог определить IP-адрес.
 var ErrNoIP = errors.New("no IP")
 
+// LocalIP возвращает локальный IP-адрес.
 func LocalIP() (net.IP, error) {
 	ifaces, err := net.Interfaces()
 	if err != nil {

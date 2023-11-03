@@ -11,7 +11,9 @@ import (
 	"strings"
 	"syscall"
 
+	pb "github.com/KryukovO/metricscollector/api/serverpb"
 	"github.com/KryukovO/metricscollector/internal/server/config"
+	sgrpc "github.com/KryukovO/metricscollector/internal/server/grpc"
 	"github.com/KryukovO/metricscollector/internal/server/http/handlers"
 	"github.com/KryukovO/metricscollector/internal/storage"
 	"github.com/KryukovO/metricscollector/internal/storage/repository/memstorage"
@@ -20,12 +22,14 @@ import (
 	"github.com/labstack/echo"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc"
 )
 
 // Server - структура сервера.
 type Server struct {
 	cfg        *config.Config
 	httpServer *echo.Echo
+	grpcServer *grpc.Server
 	l          *log.Logger
 }
 
@@ -36,15 +40,19 @@ func NewServer(cfg *config.Config, l *log.Logger) *Server {
 		lg = l
 	}
 
-	// Инициализация сервера
+	// Инициализация HTTP-сервера
 	// NOTE: можно также переопределить e.HTTPErrorHandler, чтобы он не заполнял тело ответа
 	e := echo.New()
 	e.HideBanner = true
 	e.HidePort = true
 
+	// Инициализация gRPC-сервера
+	g := grpc.NewServer()
+
 	return &Server{
 		cfg:        cfg,
 		httpServer: e,
+		grpcServer: g,
 		l:          lg,
 	}
 }
@@ -109,10 +117,18 @@ func (s *Server) Run(ctx context.Context) error {
 		return err
 	}
 
+	storageServer, err := sgrpc.NewStorageServer(stor, s.l)
+	if err != nil {
+		return err
+	}
+
 	g, groupCtx := errgroup.WithContext(ctx)
 
 	// Запуск HTTP-сервера
 	g.Go(s.runHTTPServer)
+
+	// Запуск gRPC-сервера
+	g.Go(func() error { return s.runGRPCServer(storageServer) })
 
 	// Ожидание сигнала завершения
 	g.Go(func() error {
@@ -136,7 +152,7 @@ func (s *Server) Run(ctx context.Context) error {
 }
 
 func (s *Server) runHTTPServer() error {
-	s.l.Infof("Run server at %s...", s.cfg.HTTPAddress)
+	s.l.Infof("Run HTTP-server at %s...", s.cfg.HTTPAddress)
 
 	if err := s.httpServer.Start(s.cfg.HTTPAddress); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		return err
@@ -145,10 +161,31 @@ func (s *Server) runHTTPServer() error {
 	return nil
 }
 
+func (s *Server) runGRPCServer(storageServer *sgrpc.StorageServer) error {
+	s.l.Infof("Run gRPC-server at %s...", s.cfg.GRPCAddress)
+
+	listen, err := net.Listen("tcp", s.cfg.GRPCAddress)
+	if err != nil {
+		return err
+	}
+
+	pb.RegisterStorageServer(s.grpcServer, storageServer)
+
+	if err := s.grpcServer.Serve(listen); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (s *Server) shutdown(ctx context.Context) {
 	if err := s.httpServer.Shutdown(ctx); err != nil {
-		s.l.Errorf("Can't gracefully shutdown server: %s", err.Error())
+		s.l.Errorf("Can't gracefully shutdown HTTP-server: %s", err.Error())
 	} else {
-		s.l.Info("Server stopped gracefully")
+		s.l.Info("HTTP-server stopped gracefully")
 	}
+
+	s.grpcServer.GracefulStop()
+
+	s.l.Info("gRPC-server stopped gracefully")
 }

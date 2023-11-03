@@ -6,7 +6,7 @@ option go_package="./serverpb";
 import "google/protobuf/empty.proto";
 
 // StorageServer предоставляет gRPC интерфейс для управления метриками в хранилище.
-service StorageServer {
+service Storage {
     // Update выполняет обновление единственной метрики.
     rpc Update(UpdateRequest) returns(google.protobuf.Empty);
     // UpdateMany выполняет обновления набора метрик.
