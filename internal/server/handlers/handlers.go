@@ -42,6 +42,7 @@ func SetHandlers(
 	mw := middleware.NewManager(key, privateKey, trustedSNet, l)
 	e.Use(
 		mw.LoggingMiddleware,
+		mw.IPValidationMiddleware,
 		mw.GZipMiddleware,
 		mw.HashMiddleware,
 		mw.RSAMiddleware,
