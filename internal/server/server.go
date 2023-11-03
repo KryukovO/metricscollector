@@ -12,7 +12,7 @@ import (
 	"syscall"
 
 	"github.com/KryukovO/metricscollector/internal/server/config"
-	"github.com/KryukovO/metricscollector/internal/server/handlers"
+	"github.com/KryukovO/metricscollector/internal/server/http/handlers"
 	"github.com/KryukovO/metricscollector/internal/storage"
 	"github.com/KryukovO/metricscollector/internal/storage/repository/memstorage"
 	"github.com/KryukovO/metricscollector/internal/storage/repository/pgstorage"

@@ -6,7 +6,7 @@ import (
 	"errors"
 	"net"
 
-	"github.com/KryukovO/metricscollector/internal/server/middleware"
+	"github.com/KryukovO/metricscollector/internal/server/http/middleware"
 	"github.com/KryukovO/metricscollector/internal/storage"
 	"github.com/labstack/echo"
 	log "github.com/sirupsen/logrus"

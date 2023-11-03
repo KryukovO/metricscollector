@@ -1,4 +1,4 @@
-.PHONY: build test cover cover-html bench lint static
+.PHONY: build test cover cover-html bench lint static proto
 
 BUILDDATE=$(shell date +'%d-%m-%Y')
 BUILDVERSION=v0.0.24
@@ -29,3 +29,6 @@ lint:
 
 static:
 	./cmd/staticlint/staticlint ./...
+
+proto:
+	protoc -I ./api  --go_out ./api/serverpb --go_opt paths=source_relative --go-grpc_out ./api/serverpb --go-grpc_opt paths=source_relative ./api/server.proto

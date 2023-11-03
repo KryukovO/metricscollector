@@ -1,0 +1,59 @@
+syntax = "proto3";
+
+package server;
+option go_package="./serverpb";
+
+import "google/protobuf/empty.proto";
+
+// StorageServer предоставляет gRPC интерфейс для управления метриками в хранилище.
+service StorageServer {
+    // Update выполняет обновление единственной метрики.
+    rpc Update(UpdateRequest) returns(google.protobuf.Empty);
+    // UpdateMany выполняет обновления набора метрик.
+    rpc UpdateMany(UpdateManyRequest) returns(google.protobuf.Empty);
+    // Metric возвращает описание метрики из хранилища.
+    rpc Metric(MetricRequest) returns(MetricResponse);
+    // AllMetrics описание всех метрик из хранилища.
+    rpc AllMetrics(google.protobuf.Empty) returns (AllMetricsResponse);
+}
+
+// MetricType - тип метрики.
+enum MetricType {
+    UNSPECIFIED = 0;
+    COUNTER = 1;
+    GAUGE = 2;
+}
+
+// MetricDescr содержит отписание метрики для обновления.
+message MetricDescr {
+    string id = 1;        // Имя метрики
+    MetricType type = 2;  // Тип метрики
+    int64 delta = 3;      // Значение метрики в случае передачи counter
+    float value = 4;      // Значение метрики в случае передачи gauge
+}
+
+// UpdateRequest содержит отписание метрики для обновления.
+message UpdateRequest {
+    MetricDescr metric = 1;  // Описание метрики
+}
+
+// UpdateRequest содержит набор метрик для обновления.
+message UpdateManyRequest {
+    repeated MetricDescr metrics = 1;  // Набор метрик
+}
+
+// UpdateRequest содержит описание метрики для получения из хранилища.
+message MetricRequest {
+    string id = 1;        // Имя метрики
+    MetricType type = 2;  // Тип метрики
+}
+
+// MetricResponse содержит отписание метрики, которая была запрошена.
+message MetricResponse {
+    MetricDescr metric = 1;  // Описание метрики
+}
+
+// AllMetricsResponse содержит набор метрик, хранящихся в хранилище.
+message AllMetricsResponse {
+    repeated MetricDescr metrics = 1;  // Набор метрик
+}
