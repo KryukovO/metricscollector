@@ -24,8 +24,9 @@ import (
 
 // Server - структура сервера.
 type Server struct {
-	cfg *config.Config
-	l   *log.Logger
+	cfg        *config.Config
+	httpServer *echo.Echo
+	l          *log.Logger
 }
 
 // NewServer создаёт новый объект структуры сервера.
@@ -35,9 +36,16 @@ func NewServer(cfg *config.Config, l *log.Logger) *Server {
 		lg = l
 	}
 
+	// Инициализация сервера
+	// NOTE: можно также переопределить e.HTTPErrorHandler, чтобы он не заполнял тело ответа
+	e := echo.New()
+	e.HideBanner = true
+	e.HidePort = true
+
 	return &Server{
-		cfg: cfg,
-		l:   lg,
+		cfg:        cfg,
+		httpServer: e,
+		l:          lg,
 	}
 }
 
@@ -88,33 +96,23 @@ func (s *Server) Run(ctx context.Context) error {
 		s.l.Info("Repository closed")
 	}()
 
-	// Инициализация сервера
-	// NOTE: можно также переопределить e.HTTPErrorHandler, чтобы он не заполнял тело ответа
-	e := echo.New()
-	e.HideBanner = true
-	e.HidePort = true
+	var ipNet *net.IPNet
 
-	_, ipNet, err := net.ParseCIDR(s.cfg.TrustedSNet)
-	if err != nil {
-		return err
+	if s.cfg.TrustedSNet != "" {
+		_, ipNet, err = net.ParseCIDR(s.cfg.TrustedSNet)
+		if err != nil {
+			return err
+		}
 	}
 
-	if err := handlers.SetHandlers(e, stor, []byte(s.cfg.Key), s.cfg.PrivateKey, ipNet, s.l); err != nil {
+	if err := handlers.SetHandlers(s.httpServer, stor, []byte(s.cfg.Key), s.cfg.PrivateKey, ipNet, s.l); err != nil {
 		return err
 	}
 
 	g, groupCtx := errgroup.WithContext(ctx)
 
-	// Запуск сервера
-	g.Go(func() error {
-		s.l.Infof("Run server at %s...", s.cfg.HTTPAddress)
-
-		if err := e.Start(s.cfg.HTTPAddress); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			return err
-		}
-
-		return nil
-	})
+	// Запуск HTTP-сервера
+	g.Go(s.runHTTPServer)
 
 	// Ожидание сигнала завершения
 	g.Go(func() error {
@@ -129,14 +127,28 @@ func (s *Server) Run(ctx context.Context) error {
 		shutdownCtx, cancel := context.WithTimeout(ctx, s.cfg.ShutdownTimeout.Duration)
 		defer cancel()
 
-		if err := e.Shutdown(shutdownCtx); err != nil {
-			s.l.Errorf("Can't gracefully shutdown server: %s", err.Error())
-		} else {
-			s.l.Info("Server stopped gracefully")
-		}
+		s.shutdown(shutdownCtx)
 
 		return nil
 	})
 
 	return g.Wait()
+}
+
+func (s *Server) runHTTPServer() error {
+	s.l.Infof("Run server at %s...", s.cfg.HTTPAddress)
+
+	if err := s.httpServer.Start(s.cfg.HTTPAddress); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		return err
+	}
+
+	return nil
+}
+
+func (s *Server) shutdown(ctx context.Context) {
+	if err := s.httpServer.Shutdown(ctx); err != nil {
+		s.l.Errorf("Can't gracefully shutdown server: %s", err.Error())
+	} else {
+		s.l.Info("Server stopped gracefully")
+	}
 }
