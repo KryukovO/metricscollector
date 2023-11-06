@@ -45,12 +45,20 @@ func (itc *Manager) LoggingInterceptor(
 
 	ts := time.Now()
 	resp, err := handler(uuidCtx, req)
-	st, _ := status.FromError(err)
 
-	itc.l.Printf(
-		"[%s] query response status: %d; duration: %s",
-		uuid, st.Code(), time.Since(ts),
-	)
+	if err != nil {
+		st, _ := status.FromError(err)
+
+		itc.l.Printf(
+			"[%s] query response status: %d; duration: %s",
+			uuid, st.Code(), time.Since(ts),
+		)
+	} else {
+		itc.l.Printf(
+			"[%s] query response status: OK; duration: %s",
+			uuid, time.Since(ts),
+		)
+	}
 
 	return resp, err
 }
@@ -61,6 +69,10 @@ func (itc *Manager) IPValidationInterceptor(
 	ctx context.Context, req interface{},
 	info *grpc.UnaryServerInfo, handler grpc.UnaryHandler,
 ) (interface{}, error) {
+	if itc.trustedSNet == nil {
+		return handler(ctx, req)
+	}
+
 	var ipStr string
 
 	if md, ok := metadata.FromIncomingContext(ctx); ok {

@@ -11,26 +11,20 @@ import (
 	"time"
 
 	"github.com/KryukovO/metricscollector/internal/agent/config"
+	"github.com/KryukovO/metricscollector/internal/agent/sender"
 	"github.com/KryukovO/metricscollector/internal/metric"
 	"golang.org/x/sync/errgroup"
 
 	log "github.com/sirupsen/logrus"
 )
 
-var (
-	// ErrStorageIsNil возвращается sender.Send, если был передан неинициализированный слайс метрик.
-	ErrStorageIsNil = errors.New("metrics buf is nil")
-	// ErrClientIsNil возвращается sender.sendMetrics, если был передан неинициализированный HTTP-клиент.
-	ErrClientIsNil = errors.New("HTTP client is nil")
-	// ErrUnexpectedStatus возвращается sender.sendMetrics, если сервером был возвращен статус отличный от 200 OK.
-	ErrUnexpectedStatus = errors.New("unexpected response status")
-)
+var ErrServerAddressAnknown = errors.New("unknown server address")
 
 // Agent содержит основные параметры агента.
 type Agent struct {
 	pollInterval   time.Duration
 	reportInterval time.Duration
-	sender         *Sender
+	sender         sender.Sender
 	l              *log.Logger
 }
 
@@ -41,7 +35,20 @@ func NewAgent(cfg *config.Config, l *log.Logger) (*Agent, error) {
 		lg = l
 	}
 
-	sender, err := NewSender(cfg, lg)
+	var (
+		snd sender.Sender
+		err error
+	)
+
+	switch {
+	case cfg.GRPCAddress != "":
+		snd, err = sender.NewGRPCSender(cfg, lg)
+	case cfg.HTTPAddress != "":
+		snd, err = sender.NewHTTPSender(cfg, lg)
+	default:
+		return nil, ErrServerAddressAnknown
+	}
+
 	if err != nil {
 		return nil, fmt.Errorf("sender initialization error: %w", err)
 	}
@@ -49,7 +56,7 @@ func NewAgent(cfg *config.Config, l *log.Logger) (*Agent, error) {
 	return &Agent{
 		pollInterval:   cfg.PollInterval.Duration,
 		reportInterval: cfg.ReportInterval.Duration,
-		sender:         sender,
+		sender:         snd,
 		l:              lg,
 	}, nil
 }

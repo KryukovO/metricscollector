@@ -40,20 +40,9 @@ func NewServer(cfg *config.Config, l *log.Logger) *Server {
 		lg = l
 	}
 
-	// Инициализация HTTP-сервера
-	// NOTE: можно также переопределить e.HTTPErrorHandler, чтобы он не заполнял тело ответа
-	e := echo.New()
-	e.HideBanner = true
-	e.HidePort = true
-
-	// Инициализация gRPC-сервера
-	g := grpc.NewServer()
-
 	return &Server{
-		cfg:        cfg,
-		httpServer: e,
-		grpcServer: g,
-		l:          lg,
+		cfg: cfg,
+		l:   lg,
 	}
 }
 
@@ -113,9 +102,26 @@ func (s *Server) Run(ctx context.Context) error {
 		}
 	}
 
+	// Инициализация HTTP-сервера
+	// NOTE: можно также переопределить e.HTTPErrorHandler, чтобы он не заполнял тело ответа
+	httpServer := echo.New()
+	httpServer.HideBanner = true
+	httpServer.HidePort = true
+	s.httpServer = httpServer
+
 	if err := handlers.SetHandlers(s.httpServer, stor, []byte(s.cfg.Key), s.cfg.PrivateKey, ipNet, s.l); err != nil {
 		return err
 	}
+
+	// Инициализация gRPC-сервера
+	itcManager := sgrpc.NewManager(ipNet, s.l)
+	grpcServer := grpc.NewServer(
+		grpc.ChainUnaryInterceptor(
+			itcManager.LoggingInterceptor,
+			itcManager.IPValidationInterceptor,
+		),
+	)
+	s.grpcServer = grpcServer
 
 	storageServer, err := sgrpc.NewStorageServer(stor, s.l)
 	if err != nil {

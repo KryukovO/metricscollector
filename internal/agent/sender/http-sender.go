@@ -1,4 +1,4 @@
-package agent
+package sender
 
 import (
 	"bytes"
@@ -25,11 +25,11 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-// Sender предоставляет функционал взаимодействия с сервером-хранилищем.
-type Sender struct {
+// HTTPSender предоставляет функционал взаимодействия с сервером-хранилищем посредством HTTP.
+type HTTPSender struct {
 	serverAddress string
 	rateLimit     uint
-	httpTimeout   time.Duration
+	timeout       time.Duration
 	batchSize     uint
 	retries       []int
 	key           string
@@ -38,8 +38,8 @@ type Sender struct {
 	l             *log.Logger
 }
 
-// NewSender создаёт новый объект Sender.
-func NewSender(cfg *config.Config, l *log.Logger) (*Sender, error) {
+// NewHTTPSender создаёт новый объект HTTPSender.
+func NewHTTPSender(cfg *config.Config, l *log.Logger) (*HTTPSender, error) {
 	lg := log.StandardLogger()
 	if l != nil {
 		lg = l
@@ -61,10 +61,10 @@ func NewSender(cfg *config.Config, l *log.Logger) (*Sender, error) {
 		return nil, err
 	}
 
-	return &Sender{
-		serverAddress: cfg.ServerAddress,
+	return &HTTPSender{
+		serverAddress: cfg.HTTPAddress,
 		rateLimit:     cfg.RateLimit,
-		httpTimeout:   cfg.HTTPTimeout.Duration,
+		timeout:       cfg.ServerTimeout.Duration,
 		batchSize:     cfg.BatchSize,
 		retries:       retries,
 		key:           cfg.Key,
@@ -75,13 +75,13 @@ func NewSender(cfg *config.Config, l *log.Logger) (*Sender, error) {
 }
 
 // Send инициирует отправку набора метрик в хранилище.
-func (snd *Sender) Send(ctx context.Context, storage []metric.Metrics) error {
+func (snd *HTTPSender) Send(ctx context.Context, storage []metric.Metrics) error {
 	if storage == nil {
 		return ErrStorageIsNil
 	}
 
 	g, ctx := errgroup.WithContext(ctx)
-	tasks := snd.generateSendTasks(ctx, storage)
+	tasks := generateSendTasks(ctx, storage, snd.rateLimit, snd.batchSize)
 
 	for w := 1; w <= int(snd.rateLimit); w++ {
 		id := w
@@ -94,45 +94,9 @@ func (snd *Sender) Send(ctx context.Context, storage []metric.Metrics) error {
 	return g.Wait()
 }
 
-// generateSendTasks разбивает набор метрик на батчи определенного размера.
-// Передаёт батчи через возвращаемый канал.
-func (snd *Sender) generateSendTasks(ctx context.Context, storage []metric.Metrics) chan []metric.Metrics {
-	outCh := make(chan []metric.Metrics, snd.rateLimit)
-
-	go func() {
-		defer close(outCh)
-
-		batch := make([]metric.Metrics, 0, snd.batchSize)
-
-		for _, mtrc := range storage {
-			batch = append(batch, mtrc)
-
-			if len(batch) == int(snd.batchSize) {
-				select {
-				case <-ctx.Done():
-					return
-				case outCh <- batch:
-				}
-
-				batch = make([]metric.Metrics, 0, snd.batchSize)
-			}
-		}
-
-		if len(batch) != 0 {
-			select {
-			case <-ctx.Done():
-				return
-			case outCh <- batch:
-			}
-		}
-	}()
-
-	return outCh
-}
-
 // sendTaskWorker выполняет сканирование канала на наличие в нем сообщений, содержащих метрики,
 // и инициирует отправку их в хранилище посредством HTTP.
-func (snd *Sender) sendTaskWorker(ctx context.Context, id int, tasks <-chan []metric.Metrics) error {
+func (snd *HTTPSender) sendTaskWorker(ctx context.Context, id int, tasks <-chan []metric.Metrics) error {
 	var (
 		err    error
 		client http.Client
@@ -144,7 +108,7 @@ func (snd *Sender) sendTaskWorker(ctx context.Context, id int, tasks <-chan []me
 			return nil
 		default:
 			send := func() error {
-				sendCtx, cancel := context.WithTimeout(ctx, snd.httpTimeout)
+				sendCtx, cancel := context.WithTimeout(ctx, snd.timeout)
 				defer cancel()
 
 				return snd.sendMetrics(sendCtx, &client, batch)
@@ -178,7 +142,7 @@ func (snd *Sender) sendTaskWorker(ctx context.Context, id int, tasks <-chan []me
 }
 
 // sendMetrics выполняет отправку метрик посредством HTTP.
-func (snd *Sender) sendMetrics(ctx context.Context, client *http.Client, batch []metric.Metrics) error {
+func (snd *HTTPSender) sendMetrics(ctx context.Context, client *http.Client, batch []metric.Metrics) error {
 	if client == nil {
 		return ErrClientIsNil
 	}

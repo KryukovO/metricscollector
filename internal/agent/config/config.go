@@ -17,7 +17,8 @@ import (
 )
 
 const (
-	serverAddress  = "localhost:8080" // Адрес сервера-хранилища по умолчанию
+	httpAddress    = "localhost:8080" // Адрес эндпоинта HTTP-сервера (host:port) по умолчанию
+	grpcAddress    = ""               // Адрес эндпоинта gRPC-сервера (host:port) по умолчанию
 	reportInterval = 10 * time.Second // Интервал отправки метрик в хранилище в секундах по умолчанию
 	pollInterval   = 2 * time.Second  // Интервал сканирования метрик в секундах по умолчанию
 	key            = ""               // Значения ключа аутентификации по умолчанию
@@ -38,8 +39,10 @@ type Config struct {
 	PollInterval utils.Duration `env:"POLL_INTERVAL" json:"poll_interval"`
 	// ReportInterval - Интервал отправки метрик в секундах
 	ReportInterval utils.Duration `env:"REPORT_INTERVAL" json:"report_interval"`
-	// ServerAddress - Адрес эндпоинта сервера (host:port)
-	ServerAddress string `env:"ADDRESS" json:"address"`
+	// HTTPAddress - Адрес эндпоинта HTTP-сервера (host:port)
+	HTTPAddress string `env:"ADDRESS" json:"address"`
+	// GRPCAddress - Адрес эндпоинта gRPC-сервера (host:port)
+	GRPCAddress string `env:"GADDRESS" json:"gaddress"`
 	// Key - Ключ аутентификации
 	Key string `env:"KEY" json:"-"`
 	// RateLimit - Количество одновременно исходящих запросов на сервер
@@ -47,8 +50,8 @@ type Config struct {
 	// CryptoKey - Путь до файла с публичным ключом
 	CryptoKey string `env:"CRYPTO_KEY" json:"crypto_key"`
 
-	// HTTPTimeout - Таймаут соединения с сервером
-	HTTPTimeout utils.Duration `json:"-"`
+	// ServerTimeout - Таймаут соединения с сервером
+	ServerTimeout utils.Duration `json:"-"`
 	// BatchSize - Количество посылаемых за раз метрик
 	BatchSize uint `json:"-"`
 	// Retries - Интервалы попыток соединения с сервером через запятую
@@ -66,14 +69,15 @@ func NewConfig() (*Config, error) {
 	flag.StringVar(&configPath, "c", "", "Configuration file path")
 	flag.StringVar(&configPath, "config", "", "Configuration file path")
 
-	flag.StringVar(&cfg.ServerAddress, "a", serverAddress, "Server endpoint address")
+	flag.StringVar(&cfg.HTTPAddress, "a", httpAddress, "Server endpoint address")
+	flag.StringVar(&cfg.GRPCAddress, "g", grpcAddress, "gRPC-server endpoint address")
 	flag.DurationVar(&cfg.ReportInterval.Duration, "r", reportInterval, "Metric reporting frequency in second")
 	flag.DurationVar(&cfg.PollInterval.Duration, "p", pollInterval, "Metric polling frequency in seconds")
 	flag.StringVar(&cfg.Key, "k", key, "Server key")
 	flag.UintVar(&cfg.RateLimit, "l", rateLimit, "Number of concurrent requests")
 	flag.StringVar(&cfg.CryptoKey, "crypto-key", cryptoKey, "Path to file with public cryptographic key")
 
-	flag.DurationVar(&cfg.HTTPTimeout.Duration, "timeout", httpTimeout, "Server connection timeout")
+	flag.DurationVar(&cfg.ServerTimeout.Duration, "timeout", httpTimeout, "Server connection timeout")
 	flag.UintVar(&cfg.BatchSize, "batch", batchSize, "Metrics batch size")
 	flag.StringVar(&cfg.Retries, "retries", retries, "Server connection retry intervals")
 
@@ -127,7 +131,11 @@ func (cfg *Config) parseFile(path string) error {
 	}
 
 	if !utils.IsFlagPassed("a") {
-		cfg.ServerAddress = fileConf.ServerAddress
+		cfg.HTTPAddress = fileConf.HTTPAddress
+	}
+
+	if !utils.IsFlagPassed("g") {
+		cfg.GRPCAddress = fileConf.GRPCAddress
 	}
 
 	if !utils.IsFlagPassed("r") {
