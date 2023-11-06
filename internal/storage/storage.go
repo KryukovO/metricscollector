@@ -31,7 +31,7 @@ func (s *MetricsStorage) GetAll(ctx context.Context) ([]metric.Metrics, error) {
 }
 
 // GetValue возвращает определенную метрику, соответствующую параметрам mType и mName.
-func (s *MetricsStorage) GetValue(ctx context.Context, mType string, mName string) (*metric.Metrics, error) {
+func (s *MetricsStorage) GetValue(ctx context.Context, mType metric.MetricType, mName string) (*metric.Metrics, error) {
 	if mType != metric.CounterMetric && mType != metric.GaugeMetric {
 		return nil, metric.ErrWrongMetricType
 	}

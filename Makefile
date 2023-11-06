@@ -1,7 +1,7 @@
 .PHONY: build test cover cover-html bench lint static proto
 
 BUILDDATE=$(shell date +'%d-%m-%Y')
-BUILDVERSION=v0.0.24
+BUILDVERSION=v0.0.25
 
 build:
 	go build -o cmd/agent/agent -ldflags "-X main.buildVersion=${BUILDVERSION} -X main.buildDate=${BUILDDATE}" cmd/agent/main.go

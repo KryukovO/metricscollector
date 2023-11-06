@@ -37,7 +37,7 @@ type StorageClient interface {
 	// Metric возвращает описание метрики из хранилища.
 	Metric(ctx context.Context, in *MetricRequest, opts ...grpc.CallOption) (*MetricResponse, error)
 	// AllMetrics описание всех метрик из хранилища.
-	AllMetrics(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*AllMetricsResponse, error)
+	AllMetrics(ctx context.Context, in *AllMetricsRequest, opts ...grpc.CallOption) (*AllMetricsResponse, error)
 }
 
 type storageClient struct {
@@ -75,7 +75,7 @@ func (c *storageClient) Metric(ctx context.Context, in *MetricRequest, opts ...g
 	return out, nil
 }
 
-func (c *storageClient) AllMetrics(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*AllMetricsResponse, error) {
+func (c *storageClient) AllMetrics(ctx context.Context, in *AllMetricsRequest, opts ...grpc.CallOption) (*AllMetricsResponse, error) {
 	out := new(AllMetricsResponse)
 	err := c.cc.Invoke(ctx, Storage_AllMetrics_FullMethodName, in, out, opts...)
 	if err != nil {
@@ -95,7 +95,7 @@ type StorageServer interface {
 	// Metric возвращает описание метрики из хранилища.
 	Metric(context.Context, *MetricRequest) (*MetricResponse, error)
 	// AllMetrics описание всех метрик из хранилища.
-	AllMetrics(context.Context, *emptypb.Empty) (*AllMetricsResponse, error)
+	AllMetrics(context.Context, *AllMetricsRequest) (*AllMetricsResponse, error)
 	mustEmbedUnimplementedStorageServer()
 }
 
@@ -112,7 +112,7 @@ func (UnimplementedStorageServer) UpdateMany(context.Context, *UpdateManyRequest
 func (UnimplementedStorageServer) Metric(context.Context, *MetricRequest) (*MetricResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Metric not implemented")
 }
-func (UnimplementedStorageServer) AllMetrics(context.Context, *emptypb.Empty) (*AllMetricsResponse, error) {
+func (UnimplementedStorageServer) AllMetrics(context.Context, *AllMetricsRequest) (*AllMetricsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method AllMetrics not implemented")
 }
 func (UnimplementedStorageServer) mustEmbedUnimplementedStorageServer() {}
@@ -183,7 +183,7 @@ func _Storage_Metric_Handler(srv interface{}, ctx context.Context, dec func(inte
 }
 
 func _Storage_AllMetrics_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(emptypb.Empty)
+	in := new(AllMetricsRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -195,7 +195,7 @@ func _Storage_AllMetrics_Handler(srv interface{}, ctx context.Context, dec func(
 		FullMethod: Storage_AllMetrics_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(StorageServer).AllMetrics(ctx, req.(*emptypb.Empty))
+		return srv.(StorageServer).AllMetrics(ctx, req.(*AllMetricsRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }

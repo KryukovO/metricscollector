@@ -13,6 +13,7 @@ linters:
     - nosnakecase # "deprecated". Заменено на revive(var-naming) 
     - scopelint # "deprecated". Заменено на exportloopref
     - varcheck # "deprecated". Заменено на unused
+    - exhaustive
     - exhaustivestruct # "deprecated". Заменено на exhaustruct
     - deadcode # "deprecated". Заменено на unused
     - structcheck # "deprecated". Заменено на unused
@@ -58,7 +59,17 @@ linters-settings:
       - stdlib
       - generic
       - echo.Context
-  
+
+  revive:
+    rules:
+      - name: exported
+        severity: warning
+        disabled: false
+        arguments:
+          - "disableStutteringCheck"
+          - "checkPrivateReceivers"
+          - "sayRepetitiveInsteadOfStutters"
+
   tagliatelle:
     case:
       rules:

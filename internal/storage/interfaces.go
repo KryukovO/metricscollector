@@ -11,7 +11,7 @@ type Storage interface {
 	// GetAll возвращает все метрики, находящиеся в хранилище.
 	GetAll(ctx context.Context) ([]metric.Metrics, error)
 	// GetValue возвращает определенную метрику, соответствующую параметрам mType и mName.
-	GetValue(ctx context.Context, mType string, mName string) (*metric.Metrics, error)
+	GetValue(ctx context.Context, mType metric.MetricType, mName string) (*metric.Metrics, error)
 	// Update выполняет обновление единственной метрики.
 	Update(ctx context.Context, mtrc *metric.Metrics) error
 	// UpdateMany выполняет обновление метрик из набора.
@@ -27,7 +27,7 @@ type Repo interface {
 	// GetAll возвращает все метрики, находящиеся в репозитории.
 	GetAll(ctx context.Context) ([]metric.Metrics, error)
 	// GetValue возвращает определенную метрику, соответствующую параметрам mType и mName.
-	GetValue(ctx context.Context, mType string, mName string) (*metric.Metrics, error)
+	GetValue(ctx context.Context, mType metric.MetricType, mName string) (*metric.Metrics, error)
 	// Update выполняет обновление единственной метрики.
 	Update(ctx context.Context, mtrc *metric.Metrics) error
 	// UpdateMany выполняет обновление метрик из набора.

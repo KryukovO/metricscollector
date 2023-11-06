@@ -42,7 +42,7 @@ func TestGetValue(t *testing.T) {
 	)
 
 	type args struct {
-		mType string
+		mType metric.MetricType
 		mname string
 	}
 
