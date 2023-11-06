@@ -14,7 +14,7 @@ service Storage {
     // Metric возвращает описание метрики из хранилища.
     rpc Metric(MetricRequest) returns(MetricResponse);
     // AllMetrics описание всех метрик из хранилища.
-    rpc AllMetrics(AllMetricsRequest) returns (AllMetricsResponse);
+    rpc AllMetrics(google.protobuf.Empty) returns (AllMetricsResponse);
 }
 
 // MetricType - тип метрики.
@@ -35,29 +35,22 @@ message MetricDescr {
 // UpdateRequest содержит отписание метрики для обновления.
 message UpdateRequest {
     MetricDescr metric = 1;  // Описание метрики
-    string UUID = 2; // UUID запроса
 }
 
 // UpdateRequest содержит набор метрик для обновления.
 message UpdateManyRequest {
     repeated MetricDescr metrics = 1;  // Набор метрик
-    string UUID = 2; // UUID запроса
 }
 
 // UpdateRequest содержит описание метрики для получения из хранилища.
 message MetricRequest {
     string id = 1;        // Имя метрики
     MetricType type = 2;  // Тип метрики
-    string UUID = 3; // UUID запроса
 }
 
 // MetricResponse содержит отписание метрики, которая была запрошена.
 message MetricResponse {
     MetricDescr metric = 1;  // Описание метрики
-}
-
-message AllMetricsRequest{
-    string UUID = 1; // UUID запроса
 }
 
 // AllMetricsResponse содержит набор метрик, хранящихся в хранилище.

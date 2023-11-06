@@ -46,6 +46,8 @@ func NewStorageServer(s storage.Storage, l *log.Logger) (*StorageServer, error) 
 
 // Update выполняет обновление единственной метрики.
 func (s *StorageServer) Update(ctx context.Context, req *pb.UpdateRequest) (*emptypb.Empty, error) {
+	uuid := ctx.Value("uuid")
+
 	var (
 		val interface{}
 		err error
@@ -57,7 +59,7 @@ func (s *StorageServer) Update(ctx context.Context, req *pb.UpdateRequest) (*emp
 	case pb.MetricType_GAUGE:
 		val = float64(req.GetMetric().GetValue())
 	default:
-		s.l.Debugf("[%s] %s", req.GetUUID(), metric.ErrWrongMetricType)
+		s.l.Debugf("[%s] %s", uuid, metric.ErrWrongMetricType)
 
 		return nil, status.Error(codes.InvalidArgument, metric.ErrWrongMetricType.Error())
 	}
@@ -65,13 +67,13 @@ func (s *StorageServer) Update(ctx context.Context, req *pb.UpdateRequest) (*emp
 	mtrc, err := metric.NewMetrics(req.GetMetric().GetId(), metric.MapGRPCToMetricType[req.GetMetric().GetType()], val)
 	if errors.Is(err, metric.ErrWrongMetricName) ||
 		errors.Is(err, metric.ErrWrongMetricType) || errors.Is(err, metric.ErrWrongMetricValue) {
-		s.l.Debugf("[%s] %s", req.GetUUID(), err.Error())
+		s.l.Debugf("[%s] %s", uuid, err.Error())
 
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
 	if err != nil {
-		s.l.Errorf("[%s] something went wrong: %s", req.GetUUID(), err.Error())
+		s.l.Errorf("[%s] something went wrong: %s", uuid, err.Error())
 
 		return nil, status.Error(codes.Internal, err.Error())
 	}
@@ -79,13 +81,13 @@ func (s *StorageServer) Update(ctx context.Context, req *pb.UpdateRequest) (*emp
 	err = s.storage.Update(ctx, &mtrc)
 	if errors.Is(err, metric.ErrWrongMetricName) ||
 		errors.Is(err, metric.ErrWrongMetricType) || errors.Is(err, metric.ErrWrongMetricValue) {
-		s.l.Debugf("[%s] %s", req.GetUUID(), err.Error())
+		s.l.Debugf("[%s] %s", uuid, err.Error())
 
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
 	if err != nil {
-		s.l.Errorf("[%s] something went wrong: %s", req.GetUUID(), err.Error())
+		s.l.Errorf("[%s] something went wrong: %s", uuid, err.Error())
 
 		return nil, status.Error(codes.Internal, err.Error())
 	}
@@ -95,6 +97,8 @@ func (s *StorageServer) Update(ctx context.Context, req *pb.UpdateRequest) (*emp
 
 // UpdateMany выполняет обновления набора метрик.
 func (s *StorageServer) UpdateMany(ctx context.Context, req *pb.UpdateManyRequest) (*emptypb.Empty, error) {
+	uuid := ctx.Value("uuid")
+
 	var (
 		val     interface{}
 		metrics = make([]metric.Metrics, 0, len(req.GetMetrics()))
@@ -108,7 +112,7 @@ func (s *StorageServer) UpdateMany(ctx context.Context, req *pb.UpdateManyReques
 		case pb.MetricType_GAUGE:
 			val = float64(mtrc.GetValue())
 		default:
-			s.l.Debugf("[%s] %s", req.GetUUID(), metric.ErrWrongMetricType)
+			s.l.Debugf("[%s] %s", uuid, metric.ErrWrongMetricType)
 
 			return nil, status.Error(codes.InvalidArgument, metric.ErrWrongMetricType.Error())
 		}
@@ -116,13 +120,13 @@ func (s *StorageServer) UpdateMany(ctx context.Context, req *pb.UpdateManyReques
 		m, err := metric.NewMetrics(mtrc.GetId(), metric.MapGRPCToMetricType[mtrc.GetType()], val)
 		if errors.Is(err, metric.ErrWrongMetricName) ||
 			errors.Is(err, metric.ErrWrongMetricType) || errors.Is(err, metric.ErrWrongMetricValue) {
-			s.l.Debugf("[%s] %s", req.GetUUID(), err.Error())
+			s.l.Debugf("[%s] %s", uuid, err.Error())
 
 			return nil, status.Error(codes.InvalidArgument, err.Error())
 		}
 
 		if err != nil {
-			s.l.Errorf("[%s] something went wrong: %s", req.GetUUID(), err.Error())
+			s.l.Errorf("[%s] something went wrong: %s", uuid, err.Error())
 
 			return nil, status.Error(codes.Internal, err.Error())
 		}
@@ -133,13 +137,13 @@ func (s *StorageServer) UpdateMany(ctx context.Context, req *pb.UpdateManyReques
 	err = s.storage.UpdateMany(ctx, metrics)
 	if errors.Is(err, metric.ErrWrongMetricName) ||
 		errors.Is(err, metric.ErrWrongMetricType) || errors.Is(err, metric.ErrWrongMetricValue) {
-		s.l.Debugf("[%s] %s", req.GetUUID(), err.Error())
+		s.l.Debugf("[%s] %s", uuid, err.Error())
 
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
 	if err != nil {
-		s.l.Errorf("[%s] something went wrong: %s", req.GetUUID(), err.Error())
+		s.l.Errorf("[%s] something went wrong: %s", uuid, err.Error())
 
 		return nil, status.Error(codes.Internal, err.Error())
 	}
@@ -149,13 +153,15 @@ func (s *StorageServer) UpdateMany(ctx context.Context, req *pb.UpdateManyReques
 
 // Metric возвращает описание метрики из хранилища.
 func (s *StorageServer) Metric(ctx context.Context, req *pb.MetricRequest) (*pb.MetricResponse, error) {
+	uuid := ctx.Value("uuid")
+
 	v, err := s.storage.GetValue(ctx, metric.MetricType(req.GetType()), req.GetId())
 	if errors.Is(err, metric.ErrWrongMetricType) {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
 	if err != nil {
-		s.l.Errorf("[%s] something went wrong: %s", req.GetUUID(), err.Error())
+		s.l.Errorf("[%s] something went wrong: %s", uuid, err.Error())
 
 		return nil, status.Error(codes.Internal, err.Error())
 	}
@@ -184,10 +190,12 @@ func (s *StorageServer) Metric(ctx context.Context, req *pb.MetricRequest) (*pb.
 }
 
 // AllMetrics описание всех метрик из хранилища.
-func (s *StorageServer) AllMetrics(ctx context.Context, req *pb.AllMetricsRequest) (*pb.AllMetricsResponse, error) {
+func (s *StorageServer) AllMetrics(ctx context.Context, _ *emptypb.Empty) (*pb.AllMetricsResponse, error) {
+	uuid := ctx.Value("uuid")
+
 	values, err := s.storage.GetAll(ctx)
 	if err != nil {
-		s.l.Errorf("[%s] something went wrong: %s", req.GetUUID(), err.Error())
+		s.l.Errorf("[%s] something went wrong: %s", uuid, err.Error())
 
 		return nil, status.Error(codes.Internal, err.Error())
 	}
