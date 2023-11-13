@@ -1,4 +1,4 @@
-package agent
+package sender
 
 import (
 	"context"
@@ -39,15 +39,15 @@ func TestSend(t *testing.T) {
 	server := mocks.NewMockServer()
 	defer server.Close()
 
-	sender, err := NewSender(
+	sender, err := NewHTTPSender(
 		&config.Config{
 			Retries:       "1",
-			ServerAddress: server.URL,
+			HTTPAddress:   server.URL,
 			Key:           "secret",
 			RateLimit:     2,
-			HTTPTimeout:   utils.Duration{Duration: 10 * time.Second},
+			ServerTimeout: utils.Duration{Duration: 10 * time.Second},
 			BatchSize:     1,
-			PublicKey:     privateKey.PublicKey,
+			PublicKey:     &privateKey.PublicKey,
 		},
 		nil,
 	)

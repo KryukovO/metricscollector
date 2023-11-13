@@ -1,7 +1,7 @@
-.PHONY: build test cover cover-html bench lint static
+.PHONY: build test cover cover-html bench lint static proto
 
 BUILDDATE=$(shell date +'%d-%m-%Y')
-BUILDVERSION=v0.0.23
+BUILDVERSION=v0.0.25
 
 build:
 	go build -o cmd/agent/agent -ldflags "-X main.buildVersion=${BUILDVERSION} -X main.buildDate=${BUILDDATE}" cmd/agent/main.go
@@ -29,3 +29,6 @@ lint:
 
 static:
 	./cmd/staticlint/staticlint ./...
+
+proto:
+	protoc -I ./api  --go_out ./api/serverpb --go_opt paths=source_relative --go-grpc_out ./api/serverpb --go-grpc_opt paths=source_relative ./api/server.proto

@@ -3,11 +3,8 @@ package metric
 
 import (
 	"errors"
-)
 
-const (
-	GaugeMetric   = "gauge"
-	CounterMetric = "counter"
+	pb "github.com/KryukovO/metricscollector/api/serverpb"
 )
 
 var (
@@ -19,19 +16,39 @@ var (
 	ErrWrongMetricValue = errors.New("wrong metric value")
 )
 
+// MetricType - тип метрики.
+type MetricType string
+
+const (
+	GaugeMetric   MetricType = "gauge"
+	CounterMetric MetricType = "counter"
+)
+
+// MapGRPCToMetricType - маппинг типа метрики в запросе/ответе gRPC в MetricType.
+var MapGRPCToMetricType = map[pb.MetricType]MetricType{
+	pb.MetricType_COUNTER: CounterMetric,
+	pb.MetricType_GAUGE:   GaugeMetric,
+}
+
+// MapMetricTypeToGRPC - маппинг MetricType в тип метрики в запросе/ответе gRPC.
+var MapMetricTypeToGRPC = map[MetricType]pb.MetricType{
+	CounterMetric: pb.MetricType_COUNTER,
+	GaugeMetric:   pb.MetricType_GAUGE,
+}
+
 // Metrics описывает структуру метрики.
 type Metrics struct {
-	ID    string   `json:"id"`              // Имя метрики
-	MType string   `json:"type"`            // Тип метрики (gauge или counter)
-	Delta *int64   `json:"delta,omitempty"` // Значение метрики в случае передачи counter
-	Value *float64 `json:"value,omitempty"` // Значение метрики в случае передачи gauge
+	ID    string     `json:"id"`              // Имя метрики
+	MType MetricType `json:"type"`            // Тип метрики (gauge или counter)
+	Delta *int64     `json:"delta,omitempty"` // Значение метрики в случае передачи counter
+	Value *float64   `json:"value,omitempty"` // Значение метрики в случае передачи gauge
 }
 
 // NewMetrics создает структуру метрики.
 //
 // Если параметр mType не заполнен, тип метрики определяется по переданному значению value:
 // float64 => gauge; int64 => counter.
-func NewMetrics(mName, mType string, value interface{}) (Metrics, error) {
+func NewMetrics(mName string, mType MetricType, value interface{}) (Metrics, error) {
 	if mName == "" {
 		return Metrics{}, ErrWrongMetricName
 	}

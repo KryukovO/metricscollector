@@ -136,7 +136,7 @@ func (s *PgStorage) GetAll(ctx context.Context) ([]metric.Metrics, error) {
 }
 
 // GetValue возвращает определенную метрику, соответствующую параметрам mType и mName.
-func (s *PgStorage) GetValue(ctx context.Context, mType string, mName string) (*metric.Metrics, error) {
+func (s *PgStorage) GetValue(ctx context.Context, mType metric.MetricType, mName string) (*metric.Metrics, error) {
 	slct := func() (*metric.Metrics, error) {
 		query := `
 			SELECT 

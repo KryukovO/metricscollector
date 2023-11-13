@@ -189,7 +189,7 @@ func (s *MemStorage) GetAll(_ context.Context) ([]metric.Metrics, error) {
 }
 
 // GetValue возвращает определенную метрику, соответствующую параметрам mType и mName.
-func (s *MemStorage) GetValue(_ context.Context, mType string, mName string) (*metric.Metrics, error) {
+func (s *MemStorage) GetValue(_ context.Context, mType metric.MetricType, mName string) (*metric.Metrics, error) {
 	s.mtx.RLock()
 	defer s.mtx.RUnlock()
 

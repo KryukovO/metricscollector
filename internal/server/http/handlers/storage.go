@@ -97,7 +97,7 @@ func (c *StorageController) updateHandler(e echo.Context) error {
 		val = gaugeVal
 	}
 
-	mtrc, err := metric.NewMetrics(mName, mType, val)
+	mtrc, err := metric.NewMetrics(mName, metric.MetricType(mType), val)
 	if errors.Is(err, metric.ErrWrongMetricName) {
 		c.l.Debugf("[%s] %s", uuid, err.Error())
 
@@ -243,7 +243,7 @@ func (c *StorageController) updatesHandler(e echo.Context) error {
 func (c *StorageController) getValueHandler(e echo.Context) error {
 	uuid := e.Get("uuid")
 
-	v, err := c.storage.GetValue(e.Request().Context(), e.Param("mtype"), e.Param("mname"))
+	v, err := c.storage.GetValue(e.Request().Context(), metric.MetricType(e.Param("mtype")), e.Param("mname"))
 	if errors.Is(err, metric.ErrWrongMetricType) {
 		return e.NoContent(http.StatusNotFound)
 	}

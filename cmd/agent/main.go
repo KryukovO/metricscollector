@@ -44,7 +44,7 @@ func main() {
 	}
 
 	go func() {
-		if listenErr := http.ListenAndServe("0.0.0.0:8081", nil); !errors.Is(listenErr, http.ErrServerClosed) {
+		if listenErr := http.ListenAndServe("0.0.0.0:8082", nil); !errors.Is(listenErr, http.ErrServerClosed) {
 			l.Errorf("pprof running error: %v", listenErr)
 		}
 	}()

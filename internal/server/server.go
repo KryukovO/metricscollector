@@ -4,14 +4,17 @@ package server
 import (
 	"context"
 	"errors"
+	"net"
 	"net/http"
 	"os/signal"
 	"strconv"
 	"strings"
 	"syscall"
 
+	pb "github.com/KryukovO/metricscollector/api/serverpb"
 	"github.com/KryukovO/metricscollector/internal/server/config"
-	"github.com/KryukovO/metricscollector/internal/server/handlers"
+	sgrpc "github.com/KryukovO/metricscollector/internal/server/grpc"
+	"github.com/KryukovO/metricscollector/internal/server/http/handlers"
 	"github.com/KryukovO/metricscollector/internal/storage"
 	"github.com/KryukovO/metricscollector/internal/storage/repository/memstorage"
 	"github.com/KryukovO/metricscollector/internal/storage/repository/pgstorage"
@@ -19,12 +22,15 @@ import (
 	"github.com/labstack/echo"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc"
 )
 
 // Server - структура сервера.
 type Server struct {
-	cfg *config.Config
-	l   *log.Logger
+	cfg        *config.Config
+	httpServer *echo.Echo
+	grpcServer *grpc.Server
+	l          *log.Logger
 }
 
 // NewServer создаёт новый объект структуры сервера.
@@ -87,28 +93,48 @@ func (s *Server) Run(ctx context.Context) error {
 		s.l.Info("Repository closed")
 	}()
 
-	// Инициализация сервера
-	// NOTE: можно также переопределить e.HTTPErrorHandler, чтобы он не заполнял тело ответа
-	e := echo.New()
-	e.HideBanner = true
-	e.HidePort = true
+	var ipNet *net.IPNet
 
-	if err := handlers.SetHandlers(e, stor, []byte(s.cfg.Key), s.cfg.PrivateKey, s.l); err != nil {
+	if s.cfg.TrustedSNet != "" {
+		_, ipNet, err = net.ParseCIDR(s.cfg.TrustedSNet)
+		if err != nil {
+			return err
+		}
+	}
+
+	// Инициализация HTTP-сервера
+	// NOTE: можно также переопределить e.HTTPErrorHandler, чтобы он не заполнял тело ответа
+	httpServer := echo.New()
+	httpServer.HideBanner = true
+	httpServer.HidePort = true
+	s.httpServer = httpServer
+
+	if err := handlers.SetHandlers(s.httpServer, stor, []byte(s.cfg.Key), s.cfg.PrivateKey, ipNet, s.l); err != nil {
+		return err
+	}
+
+	// Инициализация gRPC-сервера
+	itcManager := sgrpc.NewManager(ipNet, s.l)
+	grpcServer := grpc.NewServer(
+		grpc.ChainUnaryInterceptor(
+			itcManager.LoggingInterceptor,
+			itcManager.IPValidationInterceptor,
+		),
+	)
+	s.grpcServer = grpcServer
+
+	storageServer, err := sgrpc.NewStorageServer(stor, s.l)
+	if err != nil {
 		return err
 	}
 
 	g, groupCtx := errgroup.WithContext(ctx)
 
-	// Запуск сервера
-	g.Go(func() error {
-		s.l.Infof("Run server at %s...", s.cfg.HTTPAddress)
+	// Запуск HTTP-сервера
+	g.Go(s.runHTTPServer)
 
-		if err := e.Start(s.cfg.HTTPAddress); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			return err
-		}
-
-		return nil
-	})
+	// Запуск gRPC-сервера
+	g.Go(func() error { return s.runGRPCServer(storageServer) })
 
 	// Ожидание сигнала завершения
 	g.Go(func() error {
@@ -123,14 +149,49 @@ func (s *Server) Run(ctx context.Context) error {
 		shutdownCtx, cancel := context.WithTimeout(ctx, s.cfg.ShutdownTimeout.Duration)
 		defer cancel()
 
-		if err := e.Shutdown(shutdownCtx); err != nil {
-			s.l.Errorf("Can't gracefully shutdown server: %s", err.Error())
-		} else {
-			s.l.Info("Server stopped gracefully")
-		}
+		s.shutdown(shutdownCtx)
 
 		return nil
 	})
 
 	return g.Wait()
+}
+
+func (s *Server) runHTTPServer() error {
+	s.l.Infof("Run HTTP-server at %s...", s.cfg.HTTPAddress)
+
+	if err := s.httpServer.Start(s.cfg.HTTPAddress); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		return err
+	}
+
+	return nil
+}
+
+func (s *Server) runGRPCServer(storageServer *sgrpc.StorageServer) error {
+	s.l.Infof("Run gRPC-server at %s...", s.cfg.GRPCAddress)
+
+	listen, err := net.Listen("tcp", s.cfg.GRPCAddress)
+	if err != nil {
+		return err
+	}
+
+	pb.RegisterStorageServer(s.grpcServer, storageServer)
+
+	if err := s.grpcServer.Serve(listen); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *Server) shutdown(ctx context.Context) {
+	if err := s.httpServer.Shutdown(ctx); err != nil {
+		s.l.Errorf("Can't gracefully shutdown HTTP-server: %s", err.Error())
+	} else {
+		s.l.Info("HTTP-server stopped gracefully")
+	}
+
+	s.grpcServer.GracefulStop()
+
+	s.l.Info("gRPC-server stopped gracefully")
 }
